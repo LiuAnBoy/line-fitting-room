@@ -1,0 +1,51 @@
+{
+  "name": "line-fitting-room",
+  "version": "1.0.0",
+  "description": "LINE Bot for AI-powered virtual fitting room, integrating Google Gemini for image synthesis.",
+  "main": "dist/server.js",
+  "scripts": {
+    "start": "cross-env NODE_ENV=production node dist/server.js",
+    "server": "tsc --project './tsconfig.json' --watch & cross-env NODE_ENV=development nodemon dist/server.js",
+    "build": "tsc --project './tsconfig.json'"
+  },
+  "keywords": [
+    "LINE Bot",
+    "AI",
+    "Gemini",
+    "Virtual Fitting Room",
+    "TypeScript"
+  ],
+  "author": "LiuAnBoy",
+  "license": "MIT",
+  "packageManager": "pnpm@10.14.0",
+  "dependencies": {
+    "@google/genai": "^1.16.0",
+    "@line/bot-sdk": "^10.2.0",
+    "axios": "^1.11.0",
+    "chalk": "^5.6.0",
+    "cross-env": "^10.0.0",
+    "crypto": "^1.0.1",
+    "dayjs": "^1.11.18",
+    "dotenv": "^17.2.1",
+    "express": "^5.1.0",
+    "zod": "^4.1.5"
+  },
+  "devDependencies": {
+    "@eslint/js": "^9.25.1",
+    "@types/express": "^5.0.1",
+    "@types/morgan": "^1.9.9",
+    "@types/node": "^22.14.1",
+    "@typescript-eslint/eslint-plugin": "^8.31.0",
+    "@typescript-eslint/parser": "^8.31.0",
+    "eslint": "^9.25.1",
+    "eslint-config-prettier": "^10.1.2",
+    "eslint-plugin-prettier": "^5.2.6",
+    "eslint-plugin-simple-import-sort": "^12.1.1",
+    "globals": "^16.0.0",
+    "morgan": "^1.10.1",
+    "nodemon": "^3.1.10",
+    "prettier": "^3.5.3",
+    "typescript": "^5.8.3",
+    "typescript-eslint": "^8.31.0"
+  }
+}

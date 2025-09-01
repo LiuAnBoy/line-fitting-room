@@ -1,0 +1,23 @@
+# Development-only Docker Compose file.
+# Use this to quickly spin up dependent services like Redis for local development
+# without running the main application in a container.
+#
+# Usage:
+# docker-compose -f docker-compose.dev.yml up -d
+
+version: '3.8'
+
+services:
+  redis:
+    image: "redis:7-alpine"
+    # Using a different container name to avoid conflicts with the main docker-compose.yml
+    container_name: line-fitting-room-redis-dev
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis-dev-data:/data
+    command: redis-server --save 60 1 --loglevel warning
+
+volumes:
+  redis-dev-data:
+    driver: local

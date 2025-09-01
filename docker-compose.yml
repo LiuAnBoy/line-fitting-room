@@ -1,0 +1,63 @@
+version: "3.8"
+
+services:
+  # Cloudflare Tunnel
+  # if you don't want to use Cloudflare Tunnel, you can comment the following service
+  cloudflared:
+    image: cloudflare/cloudflared:latest
+    container_name: line-fitting-room-cloudflared
+    restart: unless-stopped
+    command: tunnel --no-autoupdate run --token ${CLOUDFLARE_TUNNEL_TOKEN}
+    depends_on:
+      - nginx
+  # end of Cloudflare Tunnel
+
+  nginx:
+    image: "nginx:1.25-alpine"
+    container_name: line-fitting-room-nginx
+    # Ports are no longer exposed to host, Cloudflare Tunnel handles external access.
+    # ports:
+    #   - "80:80"
+    #   - "443:443"
+    volumes:
+      - ./nginx:/etc/nginx/conf.d
+      # for SSL, you can mount your certificates here
+      # - ./certs:/etc/nginx/certs
+    depends_on:
+      - app
+
+  app:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: line-fitting-room-app
+    # Port is no longer exposed to host, Nginx handles it
+    # ports:
+    #   - "8000:8000"
+    volumes:
+      - .:/usr/src/app
+      - /usr/src/app/node_modules
+    environment:
+      - NODE_ENV=development
+      - PORT=8000
+      - BASE_URL=http://localhost:8000 # This should be your public domain in production
+      - REDIS_URL=redis://redis:6379
+      - LINE_CHANNEL_ACCESS_TOKEN=${LINE_CHANNEL_ACCESS_TOKEN}
+      - LINE_CHANNEL_SECRET=${LINE_CHANNEL_SECRET}
+      - GEMINI_API_KEY=${GEMINI_API_KEY}
+    depends_on:
+      - redis
+    command: pnpm run dev
+
+  redis:
+    image: "redis:7-alpine"
+    container_name: line-fitting-room-redis
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis-data:/data
+    command: redis-server --save 60 1 --loglevel warning
+
+volumes:
+  redis-data:
+    driver: local
