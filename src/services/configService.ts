@@ -60,7 +60,11 @@ class ConfigService {
    */
   public static get(key: keyof EnvConfig): string | number {
     const instance = ConfigService.getInstance();
-    return instance.getConfig()[key];
+    const value = instance.getConfig()[key];
+    if (value === undefined) {
+      throw new Error(`Configuration key ${String(key)} is undefined`);
+    }
+    return value;
   }
 
   /**

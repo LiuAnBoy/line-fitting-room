@@ -15,7 +15,10 @@ import {
   createUpdateCharacterInquiryMessage,
   createUpdateClothingInquiryMessage,
   helpMessage,
+  noActiveSynthesisMessage,
   processingMessage,
+  stillProcessingMessage,
+  synthesisFailedMessage,
   waitingForCharacterMessage,
   waitingForClothingMessage,
   welcomeMessage,
@@ -246,6 +249,30 @@ class ReplyService {
    */
   public createUpdateCharacterInquiryMessage(): messagingApi.TextMessage {
     return createUpdateCharacterInquiryMessage();
+  }
+
+  /**
+   * Creates a message indicating synthesis is still processing.
+   * @returns {messagingApi.TextMessage} A LINE text message object.
+   */
+  public createStillProcessingMessage(): messagingApi.TextMessage {
+    return stillProcessingMessage;
+  }
+
+  /**
+   * Creates a message for synthesis failure with re-upload options.
+   * @returns {messagingApi.TextMessage} A LINE text message object.
+   */
+  public createSynthesisFailedMessage(): messagingApi.TextMessage {
+    return synthesisFailedMessage;
+  }
+
+  /**
+   * Creates a message when no active synthesis is found.
+   * @returns {messagingApi.TextMessage} A LINE text message object.
+   */
+  public createNoActiveSynthesisMessage(): messagingApi.TextMessage {
+    return noActiveSynthesisMessage;
   }
 }
 

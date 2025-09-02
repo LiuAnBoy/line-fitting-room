@@ -13,13 +13,7 @@ import CommandService from "./commandService";
 import ConfigService from "./configService";
 import ImageCacheService from "./imageCacheService";
 import ReplyService from "./replyService";
-
-// Defines the possible states of a user in the conversation flow.
-type UserState =
-  | "waiting_for_character"
-  | "waiting_for_clothing"
-  | "waiting_for_image_type"
-  | "idle";
+import { USER_STATES } from "./userStateService";
 
 /**
  * @class LineService
@@ -34,9 +28,6 @@ class LineService {
   private commandService: CommandService;
   private logger = ConsoleHandler.getInstance("LineService");
   private config: ConfigService;
-  // In-memory map to hold the state of each user.
-  // NOTE: This is not scalable and will be replaced by a persistent store like Redis.
-  private userStates: Map<string, UserState> = new Map();
 
   /**
    * Private constructor for the Singleton pattern.
@@ -47,7 +38,7 @@ class LineService {
     this.imageCacheService = ImageCacheService.getInstance();
     this.replyService = ReplyService.getInstance();
     this.config = ConfigService.getInstance();
-    this.commandService = CommandService.getInstance(this.userStates);
+    this.commandService = CommandService.getInstance();
   }
 
   /**
@@ -171,74 +162,14 @@ class LineService {
     message: ImageEventMessage,
     replyToken: string,
   ): Promise<void> {
-    const userState = this.userStates.get(userId) || "idle";
     const imageId = message.id;
 
-    this.logger.log(`Image message from ${userId}, state: ${userState}`, {
+    this.logger.log(`Image message from ${userId}`, {
       color: "cyan",
     });
 
-    if (userState === "waiting_for_character") {
-      // Passive flow: user was prompted to upload a character image.
-      try {
-        const hadClothingBefore = this.imageCacheService.hasClothing(userId);
-        await this.imageCacheService.saveImage(userId, imageId, "character");
-        this.userStates.set(userId, "idle");
-
-        const confirmMessage =
-          this.replyService.createImageReceivedMessage("character");
-        await this.sendReply(replyToken, [confirmMessage]);
-
-        const hasBothImages =
-          await this.imageCacheService.hasBothImages(userId);
-        if (!hadClothingBefore && hasBothImages) {
-          await this.commandService.handleCommand(userId, "/開始合成", "");
-        }
-      } catch (error) {
-        this.logger.handleError(error as Error);
-        const errorMessage = this.replyService.createErrorMessage(
-          "Failed to save image. Please try again.",
-        );
-        await this.sendReply(replyToken, [errorMessage]);
-      }
-    } else if (userState === "waiting_for_clothing") {
-      // Passive flow: user was prompted to upload a clothing image.
-      try {
-        await this.imageCacheService.saveImage(userId, imageId, "clothing");
-        this.userStates.set(userId, "idle");
-
-        const confirmMessage =
-          this.replyService.createImageReceivedMessage("clothing");
-        await this.sendReply(replyToken, [confirmMessage]);
-
-        const hasBothImages =
-          await this.imageCacheService.hasBothImages(userId);
-        if (hasBothImages) {
-          await this.commandService.handleCommand(userId, "/開始合成", "");
-        }
-      } catch (error) {
-        this.logger.handleError(error as Error);
-        const errorMessage = this.replyService.createErrorMessage(
-          "Failed to save image. Please try again.",
-        );
-        await this.sendReply(replyToken, [errorMessage]);
-      }
-    } else {
-      // Active flow: user sends an image unprompted.
-      try {
-        this.commandService.setPendingImage(userId, imageId);
-
-        const inquiryMessage =
-          this.replyService.createImageTypeInquiryMessage();
-        await this.sendReply(replyToken, [inquiryMessage]);
-      } catch (error) {
-        this.logger.handleError(error as Error);
-        const errorMessage = this.replyService.createErrorMessage(
-          "An error occurred while processing the image. Please try again.",
-        );
-        await this.sendReply(replyToken, [errorMessage]);
-      }
-    }
+    // Delegate to CommandService which now handles all state management
+    await this.commandService.handleImageMessage(userId, imageId, replyToken);
   }
 
   /**
@@ -266,7 +197,7 @@ class LineService {
     this.logger.log(`User ${userId} followed the bot`, { color: "green" });
 
     if (event.replyToken && userId) {
-      this.userStates.set(userId, "idle");
+      await this.commandService.setUserState(userId, USER_STATES.IDLE);
       const welcomeMessage = this.replyService.createWelcomeMessage();
       await this.sendReply(event.replyToken, [welcomeMessage]);
     }
@@ -280,8 +211,8 @@ class LineService {
   private async handleUnfollowEvent(event: WebhookEvent): Promise<void> {
     const userId = event.source?.userId;
     if (userId) {
-      this.userStates.delete(userId);
-      this.commandService.clearPendingImage(userId);
+      await this.commandService.clearUserState(userId);
+      await this.commandService.clearPendingImage(userId);
       await this.imageCacheService.clearAll(userId);
       this.logger.log(`User ${userId} unfollowed the bot and data cleared`, {
         color: "yellow",

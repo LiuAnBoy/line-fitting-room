@@ -94,7 +94,19 @@ export const allClearedMessage: messagingApi.TextMessage = {
 // Processing Message
 export const processingMessage: messagingApi.TextMessage = {
   type: "text",
-  text: "🎨 合成圖片中，請稍候... ⏳\n\n這可能需要幾秒鐘的時間，完成後會自動回傳給您！",
+  text: "🎨 合成圖片中，請稍候... ⏳\n\n這可能需要幾秒鐘的時間，您可以點擊下方按鈕查看結果！",
+  quickReply: {
+    items: [
+      {
+        type: "action",
+        action: {
+          type: "message",
+          label: "查看結果",
+          text: "/查看結果",
+        },
+      },
+    ],
+  },
 };
 
 // Message prompting user to upload a character image
@@ -481,4 +493,74 @@ export const createBrowseImagesMessage = (
       contents: bubbles,
     },
   };
+};
+
+// Message for still processing synthesis
+export const stillProcessingMessage: messagingApi.TextMessage = {
+  type: "text",
+  text: "🔄 產生中，請稍等...",
+  quickReply: {
+    items: [
+      {
+        type: "action",
+        action: {
+          type: "message",
+          label: "查看結果",
+          text: "/查看結果",
+        },
+      },
+    ],
+  },
+};
+
+// Message for synthesis failure with re-upload options
+export const synthesisFailedMessage: messagingApi.TextMessage = {
+  type: "text",
+  text: "❌ 合成失敗，請重新上傳更容易辨識的圖片",
+  quickReply: {
+    items: [
+      {
+        type: "action",
+        action: {
+          type: "message",
+          label: "重新上傳人物",
+          text: "/上傳人物圖片",
+        },
+      },
+      {
+        type: "action",
+        action: {
+          type: "message",
+          label: "重新上傳衣物",
+          text: "/上傳衣物圖片",
+        },
+      },
+    ],
+  },
+};
+
+// Message when no active synthesis is found
+export const noActiveSynthesisMessage: messagingApi.TextMessage = {
+  type: "text",
+  text: "目前沒有進行中的合成任務",
+  quickReply: {
+    items: [
+      {
+        type: "action",
+        action: {
+          type: "message",
+          label: "開始合成",
+          text: "/開始合成",
+        },
+      },
+      {
+        type: "action",
+        action: {
+          type: "message",
+          label: "更多選項",
+          text: "/更多選項",
+        },
+      },
+    ],
+  },
 };

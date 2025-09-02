@@ -74,6 +74,14 @@ class Express {
     try {
       this.mountConfig();
       this.mountLine();
+
+      // Initialize core services
+      const ImageCacheService = (await import("../services/imageCacheService"))
+        .default;
+      const LineService = (await import("../services/lineService")).default;
+      ImageCacheService.getInstance();
+      LineService.getInstance();
+
       this.mountStaticFiles();
       this.mountRoutes();
 

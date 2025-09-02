@@ -1,20 +1,11 @@
 import axios from "axios";
 import * as fs from "fs";
+import { Redis } from "ioredis";
 import * as path from "path";
 
+import RedisProvider from "../providers/redis";
 import ConsoleHandler from "../utils/consoleHandler";
 import ConfigService from "./configService";
-
-// Interface for a cached character item (legacy).
-interface CharacterItem {
-  character: string;
-  clothing: string;
-}
-
-// Interface for the in-memory character map (legacy).
-interface CharacterMap {
-  [key: string]: CharacterItem;
-}
 
 /**
  * @class ImageCacheService
@@ -23,19 +14,11 @@ interface CharacterMap {
  */
 class ImageCacheService {
   private static instance: ImageCacheService;
-  // In-memory cache for image IDs (legacy, for backward compatibility).
-  private characterMap: CharacterMap = {};
-  // In-memory map for storing file paths of images.
-  private imagePathMap: Map<
-    string,
-    { character?: string; clothing?: string; generated?: string }
-  > = new Map();
-  // In-memory map for managing cache expiration timers.
-  private timers: Map<string, ReturnType<typeof setTimeout>> = new Map();
   private logger = ConsoleHandler.getInstance("ImageCacheService");
-  private readonly CACHE_TIMEOUT = 30 * 60 * 1000; // 30 minutes
+  private readonly CACHE_TIMEOUT = 30 * 60; // 30 minutes in seconds for Redis TTL
   private readonly IMAGES_DIR = path.join(process.cwd(), "images");
   private config: ConfigService;
+  private redis: Redis;
 
   /**
    * Private constructor for the Singleton pattern.
@@ -43,17 +26,17 @@ class ImageCacheService {
    */
   private constructor() {
     this.config = ConfigService.getInstance();
+    this.redis = RedisProvider.getInstance().getClient();
     this.initialize();
   }
 
   /**
-   * Initializes the service by ensuring the images directory exists and loading existing images.
+   * Initializes the service by ensuring the images directory exists.
    * @private
    */
   private async initialize(): Promise<void> {
     await this.ensureImagesDirectory();
-    await this.loadExistingImages();
-    this.logger.log("ImageCacheService initialized");
+    this.logger.log("ImageCacheService initialized with Redis");
   }
 
   /**
@@ -66,93 +49,6 @@ class ImageCacheService {
     } catch {
       await fs.promises.mkdir(this.IMAGES_DIR, { recursive: true });
       this.logger.log(`Created images directory: ${this.IMAGES_DIR}`);
-    }
-  }
-
-  /**
-   * Loads existing images from the filesystem into the in-memory cache upon startup.
-   * @private
-   */
-  private async loadExistingImages(): Promise<void> {
-    try {
-      try {
-        await fs.promises.access(this.IMAGES_DIR);
-      } catch {
-        return; // The images directory doesn't exist, nothing to load.
-      }
-
-      const dirents = await fs.promises.readdir(this.IMAGES_DIR, {
-        withFileTypes: true,
-      });
-      const userDirectories = dirents
-        .filter((dirent) => dirent.isDirectory())
-        .map((dirent) => dirent.name);
-
-      let totalLoadedImages = 0;
-
-      for (const userId of userDirectories) {
-        const userImageDir = this.getUserImageDir(userId);
-
-        try {
-          await fs.promises.access(userImageDir);
-        } catch {
-          continue;
-        }
-
-        const userPaths: {
-          character?: string;
-          clothing?: string;
-          generated?: string;
-        } = {};
-
-        const characterImagePath = path.join(userImageDir, "character.jpg");
-        const clothingImagePath = path.join(userImageDir, "clothing.jpg");
-
-        try {
-          await fs.promises.access(characterImagePath);
-          userPaths.character = characterImagePath;
-          totalLoadedImages++;
-        } catch {
-          // File doesn't exist, continue
-        }
-
-        try {
-          await fs.promises.access(clothingImagePath);
-          userPaths.clothing = clothingImagePath;
-          totalLoadedImages++;
-        } catch {
-          // File doesn't exist, continue
-        }
-
-        const files = await fs.promises.readdir(userImageDir);
-        const generatedFiles = files.filter(
-          (file) => file.startsWith("generated_") && file.endsWith(".jpg"),
-        );
-
-        if (generatedFiles.length > 0) {
-          generatedFiles.sort((a, b) => b.localeCompare(a));
-          const latestGenerated = generatedFiles[0];
-          userPaths.generated = path.join(userImageDir, latestGenerated);
-          totalLoadedImages++;
-        }
-
-        if (userPaths.character || userPaths.clothing || userPaths.generated) {
-          this.imagePathMap.set(userId, userPaths);
-
-          // Maintain backward compatibility with the legacy in-memory cache.
-          this.characterMap[userId] = {
-            character: userPaths.character ? `cached_${userId}_character` : "",
-            clothing: userPaths.clothing ? `cached_${userId}_clothing` : "",
-          };
-        }
-      }
-
-      this.logger.log(
-        `Loaded ${totalLoadedImages} existing images from ${userDirectories.length} user directories`,
-        { color: "green" },
-      );
-    } catch (error) {
-      this.logger.handleError(error as Error);
     }
   }
 
@@ -181,6 +77,16 @@ class ImageCacheService {
   }
 
   /**
+   * Gets the Redis hash key for a user's images.
+   * @param {string} userId - The user's ID.
+   * @returns {string} The Redis hash key.
+   * @private
+   */
+  private getUserImagesKey(userId: string): string {
+    return `user:${userId}:images`;
+  }
+
+  /**
    * Gets the singleton instance of the ImageCacheService.
    * @returns {ImageCacheService} The singleton instance.
    */
@@ -193,6 +99,7 @@ class ImageCacheService {
 
   /**
    * Downloads an image from a LINE content URL and saves it to the filesystem.
+   * Stores the file path in Redis with automatic expiration.
    * @param {string} userId - The user's ID.
    * @param {string} imageId - The message ID of the image content.
    * @param {'character' | 'clothing'} type - The type of image to save.
@@ -212,14 +119,14 @@ class ImageCacheService {
       await fs.promises.writeFile(filePath, imageBuffer);
       this.logger.log(`Saved ${type} image for user ${userId}: ${filePath}`);
 
-      if (!this.imagePathMap.has(userId)) {
-        this.imagePathMap.set(userId, {});
-      }
-      const userPaths = this.imagePathMap.get(userId)!;
-      userPaths[type] = filePath;
+      // Store file path in Redis hash
+      const redisKey = this.getUserImagesKey(userId);
+      await this.redis.hset(redisKey, type, filePath);
+      await this.redis.expire(redisKey, this.CACHE_TIMEOUT);
 
-      // Also save to the legacy in-memory cache for backward compatibility.
-      this.set(userId, imageId, type);
+      this.logger.log(`Stored ${type} image path in Redis for user ${userId}`, {
+        color: "green",
+      });
     } catch (error) {
       this.logger.handleError(error as Error);
       throw error;
@@ -247,132 +154,81 @@ class ImageCacheService {
   }
 
   /**
-   * Gets the file path for a specific type of image for a user.
+   * Gets the file path for a specific type of image for a user from Redis.
    * @param {string} userId - The user's ID.
    * @param {'character' | 'clothing' | 'generated'} type - The type of image path to get.
-   * @returns {string | null} The file path, or null if not found.
+   * @returns {Promise<string | null>} The file path, or null if not found.
    */
-  public getImagePath(
+  public async getImagePath(
     userId: string,
     type: "character" | "clothing" | "generated",
-  ): string | null {
-    const userPaths = this.imagePathMap.get(userId);
-    return userPaths?.[type] || null;
-  }
-
-  /**
-   * Sets an image ID in the legacy in-memory cache and resets the expiration timer.
-   * @param {string} userId - The user's ID.
-   * @param {string} imageId - The image ID to cache.
-   * @param {'character' | 'clothing'} type - The type of image.
-   */
-  public set(
-    userId: string,
-    imageId: string,
-    type: "character" | "clothing",
-  ): void {
+  ): Promise<string | null> {
     try {
-      if (!this.characterMap[userId]) {
-        this.characterMap[userId] = { character: "", clothing: "" };
-      }
-
-      const existingTimer = this.timers.get(userId);
-      if (existingTimer) {
-        clearTimeout(existingTimer);
-      }
-
-      this.characterMap[userId][type] = imageId;
-
-      const timer = setTimeout(() => {
-        this.clearAll(userId);
-        this.logger.log(`Auto-cleared cache for user ${userId} after timeout`, {
-          color: "yellow",
-        });
-      }, this.CACHE_TIMEOUT);
-
-      this.timers.set(userId, timer);
-
-      this.logger.log(`Set ${type} image for user ${userId}`, {
-        color: "green",
-      });
+      const redisKey = this.getUserImagesKey(userId);
+      const filePath = await this.redis.hget(redisKey, type);
+      return filePath;
     } catch (error) {
-      this.logger.error(
-        `Failed to set ${type} image for user ${userId}:`,
-        error as Error,
-      );
-      throw error;
+      this.logger.handleError(error as Error);
+      return null;
     }
   }
 
   /**
-   * Gets cached data for a user from the legacy in-memory cache.
-   * @param {string} userId - The user's ID.
-   * @returns {CharacterItem | undefined} The cached data, or undefined if not found.
-   */
-  public get(userId: string): CharacterItem | undefined {
-    return this.characterMap[userId];
-  }
-
-  /**
-   * Clears a user's character image from the filesystem and cache.
+   * Clears a user's character image from the filesystem and Redis cache.
    * @param {string} userId - The user's ID.
    */
   public async clearCharacter(userId: string): Promise<void> {
-    const userPaths = this.imagePathMap.get(userId);
-    if (userPaths?.character) {
+    const filePath = await this.getImagePath(userId, "character");
+    if (filePath) {
       try {
-        await fs.promises.access(userPaths.character);
-        await fs.promises.unlink(userPaths.character);
+        await fs.promises.access(filePath);
+        await fs.promises.unlink(filePath);
       } catch {
         // File doesn't exist, continue
       }
-      delete userPaths.character;
     }
 
-    if (this.characterMap[userId]) {
-      this.characterMap[userId].character = "";
-      this.logger.log(`Cleared character image for user ${userId}`, {
-        color: "yellow",
-      });
+    const redisKey = this.getUserImagesKey(userId);
+    await this.redis.hdel(redisKey, "character");
 
-      if (
-        !this.characterMap[userId].character &&
-        !this.characterMap[userId].clothing
-      ) {
-        await this.clearAll(userId);
-      }
+    // Check if any other images remain
+    const remainingImages = await this.redis.hkeys(redisKey);
+    if (remainingImages.length === 0) {
+      await this.redis.del(redisKey);
     }
+
+    this.logger.log(`Cleared character image for user ${userId}`, {
+      color: "yellow",
+    });
   }
 
   /**
-   * Clears a user's clothing image from the filesystem and cache.
+   * Clears a user's clothing image from the filesystem and Redis cache.
    * @param {string} userId - The user's ID.
    */
   public async clearClothing(userId: string): Promise<void> {
-    const userPaths = this.imagePathMap.get(userId);
-    if (userPaths?.clothing) {
+    const filePath = await this.getImagePath(userId, "clothing");
+    if (filePath) {
       try {
-        await fs.promises.access(userPaths.clothing);
-        await fs.promises.unlink(userPaths.clothing);
+        await fs.promises.access(filePath);
+        await fs.promises.unlink(filePath);
       } catch {
         // File doesn't exist, continue
       }
-      delete userPaths.clothing;
     }
 
-    if (this.characterMap[userId]) {
-      this.characterMap[userId].clothing = "";
-      this.logger.log(`Cleared clothing image for user ${userId}`, {
-        color: "yellow",
-      });
+    const redisKey = this.getUserImagesKey(userId);
+    await this.redis.hdel(redisKey, "clothing");
 
-      if (
-        !this.characterMap[userId].character &&
-        !this.characterMap[userId].clothing
-      ) {
-        await this.clearAll(userId);
-      }
+    // Check if any other images remain
+    const remainingImages = await this.redis.hkeys(redisKey);
+    if (remainingImages.length === 0) {
+      await this.redis.del(redisKey);
     }
+
+    this.logger.log(`Cleared clothing image for user ${userId}`, {
+      color: "yellow",
+    });
   }
 
   /**
@@ -389,20 +245,13 @@ class ImageCacheService {
       // Directory doesn't exist, continue
     }
 
-    this.imagePathMap.delete(userId);
+    // Clear Redis hash
+    const redisKey = this.getUserImagesKey(userId);
+    await this.redis.del(redisKey);
 
-    const timer = this.timers.get(userId);
-    if (timer) {
-      clearTimeout(timer);
-      this.timers.delete(userId);
-    }
-
-    if (this.characterMap[userId]) {
-      delete this.characterMap[userId];
-      this.logger.log(`Cleared all cache data for user ${userId}`, {
-        color: "red",
-      });
-    }
+    this.logger.log(`Cleared all cache data for user ${userId}`, {
+      color: "red",
+    });
   }
 
   /**
@@ -411,18 +260,14 @@ class ImageCacheService {
    * @returns {Promise<boolean>} True if the image exists, false otherwise.
    */
   public async hasCharacter(userId: string): Promise<boolean> {
-    const filePath = this.getImagePath(userId, "character");
-    if (filePath) {
-      try {
-        await fs.promises.access(filePath);
-        return true;
-      } catch {
-        // File doesn't exist, fall through to legacy check
-      }
+    try {
+      const redisKey = this.getUserImagesKey(userId);
+      const exists = await this.redis.hexists(redisKey, "character");
+      return exists === 1;
+    } catch (error) {
+      this.logger.handleError(error as Error);
+      return false;
     }
-
-    const data = this.characterMap[userId];
-    return !!(data && data.character);
   }
 
   /**
@@ -431,18 +276,14 @@ class ImageCacheService {
    * @returns {Promise<boolean>} True if the image exists, false otherwise.
    */
   public async hasClothing(userId: string): Promise<boolean> {
-    const filePath = this.getImagePath(userId, "clothing");
-    if (filePath) {
-      try {
-        await fs.promises.access(filePath);
-        return true;
-      } catch {
-        // File doesn't exist, fall through to legacy check
-      }
+    try {
+      const redisKey = this.getUserImagesKey(userId);
+      const exists = await this.redis.hexists(redisKey, "clothing");
+      return exists === 1;
+    } catch (error) {
+      this.logger.handleError(error as Error);
+      return false;
     }
-
-    const data = this.characterMap[userId];
-    return !!(data && data.clothing);
   }
 
   /**
@@ -462,35 +303,37 @@ class ImageCacheService {
    * @returns {Promise<boolean>} True if the image exists, false otherwise.
    */
   public async hasGenerated(userId: string): Promise<boolean> {
-    const filePath = this.getImagePath(userId, "generated");
-    if (filePath) {
-      try {
-        await fs.promises.access(filePath);
-        return true;
-      } catch {
-        return false;
-      }
+    try {
+      const redisKey = this.getUserImagesKey(userId);
+      const exists = await this.redis.hexists(redisKey, "generated");
+      return exists === 1;
+    } catch (error) {
+      this.logger.handleError(error as Error);
+      return false;
     }
-    return false;
   }
 
   /**
-   * Saves the file path of a newly generated image.
+   * Saves the file path of a newly generated image in Redis.
    * @param {string} userId - The user's ID.
    * @param {string} filePath - The absolute path to the generated image file.
    */
-  public saveGeneratedImagePath(userId: string, filePath: string): void {
-    if (!this.imagePathMap.has(userId)) {
-      this.imagePathMap.set(userId, {});
+  public async saveGeneratedImagePath(
+    userId: string,
+    filePath: string,
+  ): Promise<void> {
+    try {
+      const redisKey = this.getUserImagesKey(userId);
+      await this.redis.hset(redisKey, "generated", filePath);
+      await this.redis.expire(redisKey, this.CACHE_TIMEOUT);
+
+      this.logger.log(
+        `Generated image path saved for user ${userId}: ${filePath}`,
+      );
+    } catch (error) {
+      this.logger.handleError(error as Error);
+      throw error;
     }
-    const userPaths = this.imagePathMap.get(userId)!;
-    userPaths.generated = filePath;
-
-    this.logger.log(
-      `Generated image path saved for user ${userId}: ${filePath}`,
-    );
-
-    this.resetTimer(userId);
   }
 
   /**
@@ -498,7 +341,7 @@ class ImageCacheService {
    * @param {string} userId - The user's ID.
    */
   public async clearGenerated(userId: string): Promise<void> {
-    const filePath = this.getImagePath(userId, "generated");
+    const filePath = await this.getImagePath(userId, "generated");
     if (filePath) {
       try {
         await fs.promises.access(filePath);
@@ -509,45 +352,27 @@ class ImageCacheService {
       }
     }
 
-    const userPaths = this.imagePathMap.get(userId);
-    if (userPaths) {
-      delete userPaths.generated;
+    const redisKey = this.getUserImagesKey(userId);
+    await this.redis.hdel(redisKey, "generated");
+
+    // Check if any other images remain
+    const remainingImages = await this.redis.hkeys(redisKey);
+    if (remainingImages.length === 0) {
+      await this.redis.del(redisKey);
     }
-  }
-
-  /**
-   * Resets the cache expiration timer for a user.
-   * @param {string} userId - The user's ID.
-   * @private
-   */
-  private resetTimer(userId: string): void {
-    const existingTimer = this.timers.get(userId);
-    if (existingTimer) {
-      clearTimeout(existingTimer);
-    }
-
-    const timer = setTimeout(() => {
-      this.clearAll(userId);
-      this.logger.log(`Auto-cleared cache for user ${userId} after timeout`, {
-        color: "yellow",
-      });
-    }, this.CACHE_TIMEOUT);
-
-    this.timers.set(userId, timer);
-    this.logger.log(`Reset timer for user ${userId}`, { color: "blue" });
   }
 
   /**
    * Converts a local image file path to a publicly accessible URL.
    * @param {string} userId - The user's ID.
    * @param {'character' | 'clothing' | 'generated'} type - The type of image URL to generate.
-   * @returns {string | null} The public URL, or null if the path doesn't exist.
+   * @returns {Promise<string | null>} The public URL, or null if the path doesn't exist.
    */
-  public getImageUrl(
+  public async getImageUrl(
     userId: string,
     type: "character" | "clothing" | "generated",
-  ): string | null {
-    const filePath = this.getImagePath(userId, type);
+  ): Promise<string | null> {
+    const filePath = await this.getImagePath(userId, type);
     if (!filePath) {
       return null;
     }
@@ -564,31 +389,28 @@ class ImageCacheService {
   }
 
   /**
-   * Manually triggers a reload of existing images from the filesystem.
-   */
-  public async reloadExistingImages(): Promise<void> {
-    this.logger.log("Manually reloading existing images...", {
-      color: "yellow",
-    });
-    await this.loadExistingImages();
-  }
-
-  /**
    * Gets current cache statistics for debugging purposes.
-   * @returns {object} An object containing cache statistics.
+   * @returns {Promise<object>} An object containing cache statistics.
    */
-  public getStats(): {
-    totalUsers: number;
-    users: string[];
-    imagePathMapSize: number;
-    imagePathUsers: string[];
-  } {
-    return {
-      totalUsers: Object.keys(this.characterMap).length,
-      users: Object.keys(this.characterMap),
-      imagePathMapSize: this.imagePathMap.size,
-      imagePathUsers: Array.from(this.imagePathMap.keys()),
-    };
+  public async getStats(): Promise<{
+    totalUserKeys: number;
+    userKeys: string[];
+  }> {
+    try {
+      const pattern = "user:*:images";
+      const keys = await this.redis.keys(pattern);
+
+      return {
+        totalUserKeys: keys.length,
+        userKeys: keys,
+      };
+    } catch (error) {
+      this.logger.handleError(error as Error);
+      return {
+        totalUserKeys: 0,
+        userKeys: [],
+      };
+    }
   }
 }
 

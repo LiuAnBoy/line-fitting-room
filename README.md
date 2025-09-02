@@ -14,12 +14,12 @@ This is an application developed using LINE Bot SDK, Google Gemini API, and Expr
 
 ## Prerequisites
 
-Before you begin, ensure your system has the following software installed:
+Before you begin, ensure your system has the following software installed and up-to-date:
 
-- **Git**: For cloning the project repository.
-- **Node.js**: Version 18 or higher.
-- **pnpm**: As the package manager (recommended).
-- **Docker & Docker Compose**: For containerized deployment.
+*   **Git**: For cloning the project repository.
+*   **Node.js**: Version 18 or higher.
+*   **pnpm**: As the package manager (recommended).
+*   **Docker & Docker Compose**: For containerized deployment.
 
 ## Project Setup
 

@@ -7,18 +7,19 @@ import ConsoleHandler from "../utils/consoleHandler";
 
 /**
  * @class GeminiProvider
- * @description A provider class to interact with the Google Gemini API for image generation.
+ * @description Pure API client for Google Gemini API interactions
  */
 class GeminiProvider {
+  private static instance: GeminiProvider;
   private readonly apiKey: string;
   private config: ConfigService;
   private logger: ConsoleHandler;
   private ai: GoogleGenAI;
 
   /**
-   * @constructor
+   * Private constructor for singleton pattern
    */
-  constructor() {
+  private constructor() {
     this.config = ConfigService.getInstance();
     this.apiKey = this.config.getConfig().GEMINI_API_KEY;
     this.logger = ConsoleHandler.getInstance("GeminiProvider");
@@ -28,21 +29,31 @@ class GeminiProvider {
   }
 
   /**
-   * Generates a new image by combining a character and a clothing image using the Gemini API.
-   * @param {string} userId - The ID of the user for whom to generate the image.
-   * @returns {Promise<string>} The file path of the newly generated image.
+   * Gets the singleton instance of the GeminiProvider
+   * @returns {GeminiProvider} The singleton instance
    */
-  public async generateImagePhoto(userId: string): Promise<string> {
-    // Read the character image and format it to Base64
-    const { data: characterImageData } = await this.getImageData(
-      userId,
-      "character",
-    );
-    // Read the clothing image and format it to Base64
-    const { data: clothingImageData } = await this.getImageData(
-      userId,
-      "clothing",
-    );
+  public static getInstance(): GeminiProvider {
+    if (!GeminiProvider.instance) {
+      GeminiProvider.instance = new GeminiProvider();
+    }
+    return GeminiProvider.instance;
+  }
+
+  /**
+   * Synthesize images using character and clothing image data
+   * @param {string} characterImagePath - Path to character image file
+   * @param {string} clothingImagePath - Path to clothing image file
+   * @param {string} userId - User ID for generating output path
+   * @returns {Promise<string>} The file path of the newly generated image
+   */
+  public async synthesizeImages(
+    characterImagePath: string,
+    clothingImagePath: string,
+    userId: string,
+  ): Promise<string> {
+    // Read image files and convert to base64
+    const characterImageData = await this.readImageAsBase64(characterImagePath);
+    const clothingImageData = await this.readImageAsBase64(clothingImagePath);
 
     const prompt = `Replace the clothing on the person from the first image with the outfit from the second image. 
 Keep the original background and environment from the character image unchanged. 
@@ -51,7 +62,7 @@ Adjust lighting and shadows so the outfit matches the existing scene.
 The final photo should look like a professional, high-resolution fashion e-commerce image, 
 with the person realistically wearing the clothing in the original background.`;
 
-    // Generate the image photo
+    // Call Gemini API for image generation
     const response = await this.ai.models.generateContent({
       model: "gemini-2.5-flash-image-preview",
       contents: [
@@ -80,19 +91,47 @@ with the person realistically wearing the clothing in the original background.`;
       throw new Error("No image data found from Gemini API");
     }
 
+    // Save generated image to file system
+    return await this.saveGeneratedImage(imageData, userId);
+  }
+
+  /**
+   * Reads an image file and converts it to a base64 string.
+   * @param {string} imagePath - Full path to the image file.
+   * @returns {Promise<string>} Base64 encoded image data.
+   * @private
+   */
+  private async readImageAsBase64(imagePath: string): Promise<string> {
+    const imageData = await fs.promises.readFile(imagePath);
+    return imageData.toString("base64");
+  }
+
+  /**
+   * Save generated image data to file system
+   * @param {string} imageData - Base64 image data from API
+   * @param {string} userId - User ID for directory structure
+   * @returns {Promise<string>} File path of saved image
+   * @private
+   */
+  private async saveGeneratedImage(
+    imageData: string,
+    userId: string,
+  ): Promise<string> {
     const buffer = Buffer.from(imageData, "base64");
 
     const userImageDir = path.join(process.cwd(), "images", userId);
 
+    // Ensure user directory exists
     try {
       await fs.promises.access(userImageDir);
     } catch {
       await fs.promises.mkdir(userImageDir, { recursive: true });
     }
 
+    // Clean up old generated images
     await this.cleanupOldGeneratedImages(userImageDir);
 
-    // Generate a new filename using a timestamp.
+    // Generate unique filename with timestamp
     const timestamp = new Date().toISOString().replace(/[:.]/g, "-");
     const filename = `generated_${timestamp}.jpg`;
     const filePath = path.join(userImageDir, filename);
@@ -104,27 +143,8 @@ with the person realistically wearing the clothing in the original background.`;
   }
 
   /**
-   * Reads an image file from the filesystem and returns its Base64 encoded data.
-   * @param {string} userId - The user's ID.
-   * @param {'character' | 'clothing'} type - The type of image to read.
-   * @returns {Promise<{ data: string; fileName: string }>} An object containing the Base64 data and filename.
-   * @private
-   */
-  private async getImageData(
-    userId: string,
-    type: "character" | "clothing",
-  ): Promise<{ data: string; fileName: string }> {
-    const imagePath = path.join(process.cwd(), "images", userId, `${type}.jpg`);
-    const imageData = await fs.promises.readFile(imagePath);
-    return {
-      data: imageData.toString("base64"),
-      fileName: `${type}.jpg`,
-    };
-  }
-
-  /**
-   * Deletes all previously generated images (files starting with 'generated_') in a user's directory.
-   * @param {string} userImageDir - The absolute path to the user's image directory.
+   * Clean up old generated images in user directory
+   * @param {string} userImageDir - Absolute path to user's image directory
    * @private
    */
   private async cleanupOldGeneratedImages(userImageDir: string): Promise<void> {
@@ -142,10 +162,25 @@ with the person realistically wearing the clothing in the original background.`;
         }),
       );
     } catch (error) {
-      // If the directory doesn't exist or there are other errors, log it but don't crash.
+      // If directory doesn't exist or other errors, log but don't crash
       this.logger.handleError(error as Error);
+    }
+  }
+
+  /**
+   * Health check for Gemini API availability
+   * @returns {Promise<boolean>} API availability status
+   */
+  public async healthCheck(): Promise<boolean> {
+    try {
+      // Simple API test - this would need actual implementation based on Gemini API docs
+      // For now, just check if we have a valid API key
+      return Boolean(this.apiKey && this.apiKey.length > 0);
+    } catch (error) {
+      this.logger.handleError(error as Error);
+      return false;
     }
   }
 }
 
-export default new GeminiProvider();
+export default GeminiProvider;
