@@ -1,9 +1,9 @@
 import { messagingApi } from "@line/bot-sdk";
 import * as path from "path";
 
-import GeminiProvider from "../providers/gemini";
 import LineProvider from "../providers/line";
 import ConsoleHandler from "../utils/consoleHandler";
+import AIService from "./aiService";
 import ConfigService from "./configService";
 import ImageCacheService from "./imageCacheService";
 import ReplyService from "./replyService";
@@ -29,6 +29,7 @@ class CommandService {
   private userStateService: UserStateService;
   private logger = ConsoleHandler.getInstance("CommandService");
   private commandHandlers: Map<string, CommandHandler> = new Map();
+  private aiService: AIService;
 
   /**
    * Private constructor for the Singleton pattern.
@@ -39,6 +40,7 @@ class CommandService {
     this.replyService = ReplyService.getInstance();
     this.config = ConfigService.getInstance();
     this.userStateService = UserStateService.getInstance();
+    this.aiService = AIService.getInstance();
 
     this.initializeCommandHandlers();
   }
@@ -734,16 +736,7 @@ class CommandService {
 
         try {
           const generatedImagePath =
-            await GeminiProvider.getInstance().synthesizeImages(
-              path.join(process.cwd(), "images", userId, "character.jpg"),
-              path.join(process.cwd(), "images", userId, "clothing.jpg"),
-              userId,
-            );
-
-          await this.imageCacheService.saveGeneratedImagePath(
-            userId,
-            generatedImagePath,
-          );
+            await this.aiService.synthesizeImages(userId);
 
           await this.userStateService.setSynthesisResult(userId, {
             status: "completed",

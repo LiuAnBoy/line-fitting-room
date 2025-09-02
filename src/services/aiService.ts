@@ -1,7 +1,8 @@
+import { GoogleGenAI } from "@google/genai";
 import * as fs from "fs";
 
-import GeminiProvider from "../providers/gemini";
 import consoleHandler from "../utils/consoleHandler";
+import ConfigService from "./configService";
 import ImageCacheService from "./imageCacheService";
 
 /**
@@ -10,7 +11,8 @@ import ImageCacheService from "./imageCacheService";
  */
 class AIService {
   private static instance: AIService;
-  private geminiProvider: GeminiProvider;
+  private ai: GoogleGenAI;
+  private config: ConfigService;
   private imageCacheService: ImageCacheService;
   private logger = consoleHandler.getInstance("AIService");
 
@@ -18,7 +20,10 @@ class AIService {
    * Private constructor for the Singleton pattern.
    */
   private constructor() {
-    this.geminiProvider = GeminiProvider.getInstance();
+    this.config = ConfigService.getInstance();
+    this.ai = new GoogleGenAI({
+      apiKey: this.config.getConfig().GEMINI_API_KEY,
+    });
     this.imageCacheService = ImageCacheService.getInstance();
   }
 
@@ -35,33 +40,50 @@ class AIService {
 
   /**
    * Execute image synthesis with unified business logic
-   * @param {string} characterImagePath - Character image file path
-   * @param {string} clothingImagePath - Clothing image file path
    * @param {string} userId - User ID
    * @returns {Promise<string>} Generated image file path
    */
-  public async synthesizeImages(
-    characterImagePath: string,
-    clothingImagePath: string,
-    userId: string,
-  ): Promise<string> {
+  public async synthesizeImages(userId: string): Promise<string> {
     this.logger.log(`Starting image synthesis for user ${userId}`, {
       color: "blue",
     });
 
     try {
-      // Validate if the input images exist
-      await this.validateImagePaths(characterImagePath, clothingImagePath);
-
-      // Use GeminiProvider for image synthesis
-      const generatedImagePath = await this.geminiProvider.synthesizeImages(
-        characterImagePath,
-        clothingImagePath,
+      // Get image paths from cache service
+      const characterImagePath = await this.imageCacheService.getImagePath(
         userId,
+        "character",
+      );
+      const clothingImagePath = await this.imageCacheService.getImagePath(
+        userId,
+        "clothing",
       );
 
-      // Update image cache
-      this.imageCacheService.saveGeneratedImagePath(userId, generatedImagePath);
+      if (!characterImagePath || !clothingImagePath) {
+        throw new Error("Required images not found for synthesis");
+      }
+
+      // Validate image paths
+      await this.validateImagePaths(characterImagePath, clothingImagePath);
+
+      // Read image data as base64
+      const characterImageData =
+        await this.imageCacheService.readImageAsBase64(characterImagePath);
+      const clothingImageData =
+        await this.imageCacheService.readImageAsBase64(clothingImagePath);
+
+      // Use Gemini API for image synthesis
+      const generatedImageData = await this.synthesizeImagesWithGemini(
+        characterImageData,
+        clothingImageData,
+      );
+
+      // Save generated image
+      const generatedImagePath =
+        await this.imageCacheService.saveGeneratedImage(
+          generatedImageData,
+          userId,
+        );
 
       this.logger.log(
         `Successfully synthesized image for user ${userId}: ${generatedImagePath}`,
@@ -101,13 +123,62 @@ class AIService {
   }
 
   /**
+   * Synthesize images using character and clothing image base64 data
+   * @param {string} characterImageData - Base64 character image data
+   * @param {string} clothingImageData - Base64 clothing image data
+   * @returns {Promise<string>} Base64 encoded generated image data
+   * @private
+   */
+  private async synthesizeImagesWithGemini(
+    characterImageData: string,
+    clothingImageData: string,
+  ): Promise<string> {
+    const prompt = `Replace the clothing on the person from the first image with the outfit from the second image. 
+Keep the original background and environment from the character image unchanged. 
+Ensure the new clothing fits naturally on the body with realistic fabric texture, folds, and correct perspective. 
+Adjust lighting and shadows so the outfit matches the existing scene. 
+The final photo should look like a professional, high-resolution fashion e-commerce image, 
+with the person realistically wearing the clothing in the original background.`;
+
+    const response = await this.ai.models.generateContent({
+      model: "gemini-2.5-flash-image-preview",
+      contents: [
+        {
+          inlineData: {
+            mimeType: "image/jpeg",
+            data: characterImageData,
+          },
+        },
+        {
+          inlineData: {
+            mimeType: "image/jpeg",
+            data: clothingImageData,
+          },
+        },
+        {
+          text: prompt,
+        },
+      ],
+    });
+
+    const imageData =
+      response.candidates?.[0]?.content?.parts?.[0]?.inlineData?.data;
+
+    if (!imageData) {
+      throw new Error("No image data found from Gemini API");
+    }
+
+    return imageData;
+  }
+
+  /**
    * Check if AI service is available
    * @returns {Promise<boolean>} Service availability status
    */
   public async isServiceAvailable(): Promise<boolean> {
     try {
-      // 檢查 Gemini API 是否可用
-      return await this.geminiProvider.healthCheck();
+      const apiKey = this.config.getConfig().GEMINI_API_KEY;
+      return Boolean(apiKey && apiKey.length > 0);
     } catch (error) {
       this.logger.error("AI service health check failed:", error as Error);
       return false;

@@ -384,6 +384,78 @@ class ImageCacheService {
   }
 
   /**
+   * Reads an image file and converts it to a base64 string.
+   * @param {string} imagePath - Full path to the image file.
+   * @returns {Promise<string>} Base64 encoded image data.
+   */
+  public async readImageAsBase64(imagePath: string): Promise<string> {
+    try {
+      const imageData = await fs.promises.readFile(imagePath);
+      return imageData.toString("base64");
+    } catch (error) {
+      this.logger.handleError(error as Error);
+      throw new Error(`Failed to read image file: ${imagePath}`);
+    }
+  }
+
+  /**
+   * Save generated image data to file system and update Redis cache
+   * @param {string} imageData - Base64 image data from API
+   * @param {string} userId - User ID for directory structure
+   * @returns {Promise<string>} File path of saved image
+   */
+  public async saveGeneratedImage(
+    imageData: string,
+    userId: string,
+  ): Promise<string> {
+    try {
+      const buffer = Buffer.from(imageData, "base64");
+      await this.ensureUserDirectory(userId);
+      await this.cleanupOldGeneratedImages(userId);
+
+      const timestamp = new Date().toISOString().replace(/[:.]/g, "-");
+      const filename = `generated_${timestamp}.jpg`;
+      const filePath = path.join(this.getUserImageDir(userId), filename);
+
+      await fs.promises.writeFile(filePath, buffer);
+      this.logger.log(`Generated image saved: ${filePath}`);
+
+      await this.saveGeneratedImagePath(userId, filePath);
+
+      return filePath;
+    } catch (error) {
+      this.logger.handleError(error as Error);
+      throw new Error(`Failed to save generated image for user ${userId}`);
+    }
+  }
+
+  /**
+   * Clean up old generated images in user directory
+   * @param {string} userId - User ID for directory cleanup
+   */
+  public async cleanupOldGeneratedImages(userId: string): Promise<void> {
+    try {
+      const userImageDir = this.getUserImageDir(userId);
+      await fs.promises.access(userImageDir);
+
+      const files = await fs.promises.readdir(userImageDir);
+      const generatedFiles = files.filter((file) =>
+        file.startsWith("generated_"),
+      );
+
+      await Promise.all(
+        generatedFiles.map(async (file) => {
+          const filePath = path.join(userImageDir, file);
+          await fs.promises.unlink(filePath);
+          this.logger.log(`Deleted old generated image: ${filePath}`);
+        }),
+      );
+    } catch (error) {
+      this.logger.log(`No old generated images to cleanup for user ${userId}`);
+    }
+  }
+
+  /**
    * Gets current cache statistics for debugging purposes.
    * @returns {Promise<object>} An object containing cache statistics.
    */
