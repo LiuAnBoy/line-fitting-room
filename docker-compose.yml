@@ -38,16 +38,16 @@ services:
       - .:/usr/src/app
       - /usr/src/app/node_modules
     environment:
-      - NODE_ENV=development
-      - PORT=8000
-      - BASE_URL=http://localhost:8000 # This should be your public domain in production
-      - REDIS_URL=redis://redis:6379
+      - NODE_ENV=${NODE_ENV}
+      - PORT=${PORT}
+      - BASE_URL=${BASE_URL} # This should be your public domain in production
+      - REDIS_URL=${REDIS_URL}
       - LINE_CHANNEL_ACCESS_TOKEN=${LINE_CHANNEL_ACCESS_TOKEN}
       - LINE_CHANNEL_SECRET=${LINE_CHANNEL_SECRET}
       - GEMINI_API_KEY=${GEMINI_API_KEY}
     depends_on:
       - redis
-    command: pnpm run dev
+    command: pnpm start
 
   redis:
     image: "redis:7-alpine"

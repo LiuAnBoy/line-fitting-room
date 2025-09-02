@@ -1,148 +1,152 @@
-# LINE Fitting Room Bot
+# LINE AI Fitting Room
 
-## Project Introduction
+An AI-powered virtual fitting room LINE Bot. This application allows users to upload images of a person and an item of clothing, then utilizes the Google Gemini API to generate a new image of the person wearing the selected garment.
 
-This is an application developed using LINE Bot SDK, Google Gemini API, and Express.js. It allows users to upload character images and clothing images, then utilizes AI technology to synthesize the clothing onto the character, creating a virtual try-on effect.
+---
 
-## Features
+## ✨ Features
 
-- **AI Virtual Try-On**: Combines character and clothing images to generate new synthesized images.
-- **Image Management**: Supports uploading, clearing character, and clothing images.
-- **Conversational Interaction**: Operates through LINE message commands.
-- **Dockerized Deployment**: Facilitates quick deployment and environment isolation.
-- **Cloudflare Tunnel Integration**: Provides secure external connectivity without exposing ports.
+- **AI-Powered Virtual Try-On**: Leverages Google Gemini to synthesize clothing onto a person's image.
+- **Interactive Bot Commands**: A rich set of commands for a complete user experience.
+- **Stateful Conversations**: Remembers user state (e.g., waiting for a specific image) for a natural workflow.
+- **Image Caching**: Uses Redis to cache uploaded images, improving performance.
+- **Robust Configuration**: Employs Zod for strict, fail-fast environment variable validation on startup.
+- **Containerized**: Fully containerized with Docker and Docker Compose for easy setup and deployment.
 
-## Prerequisites
+---
 
-Before you begin, ensure your system has the following software installed and up-to-date:
+## 🏛️ Architecture Overview
 
-*   **Git**: For cloning the project repository.
-*   **Node.js**: Version 18 or higher.
-*   **pnpm**: As the package manager (recommended).
-*   **Docker & Docker Compose**: For containerized deployment.
+The application consists of a main Node.js/Express server that handles the LINE webhook, and communicates with external services for its core functionality.
 
-## Project Setup
+```
++-----------------+      +-----------------+      +----------------------+
+|   User on LINE  | <--> |   LINE Platform | <--> |  Express Server (App)| 
++-----------------+      +-----------------+      +----------------------+
+                                                     |           ^
+                                                     |           |
+                                                     v           |
+                                             +-----------+   +-------------+
+                                             |   Redis   |   | Google      |
+                                             | (Cache)   |   | Gemini API  |
+                                             +-----------+   +-------------+
+```
 
-### 1. Clone the Repository
+---
+
+## 🚀 Getting Started
+
+### Prerequisites
+
+- [Node.js](https://nodejs.org/) (v18 or higher)
+- [pnpm](https://pnpm.io/) (v10 or higher)
+- [Docker](https://www.docker.com/) and [Docker Compose](https://docs.docker.com/compose/)
+
+### 1. Clone & Install
+
+Clone the repository and install the dependencies:
 
 ```bash
 git clone https://github.com/your-repo/line-fitting-room.git
 cd line-fitting-room
-```
-
-### 2. Install Dependencies
-
-Install all project dependencies using pnpm:
-
-```bash
 pnpm install
 ```
 
-### 3. Environment Variables Configuration (.env Configuration)
+### 2. Configure Environment
 
-Copy the `.env.example` file and rename it to `.env`. Then fill in your API keys and relevant settings.
+Copy the example `.env` file and fill in your credentials.
 
 ```bash
 cp .env.example .env
 ```
 
-Open the `.env` file and fill in the following variables:
+**`/.env`**
 
-- **`PORT`**: The port your application listens on inside the container (default 8000).
-- **`NODE_ENV`**: The operating environment (`development` or `production`).
-- **`BASE_URL`**: The public-facing URL of your application.
-  - **Local Development**: `http://localhost`
-  - **Production**: `https://your_domain` (e.g., `https://line.example.com`)
-- **`LINE_CHANNEL_ACCESS_TOKEN`**: Your LINE Bot Channel Access Token.
-- **`LINE_CHANNEL_SECRET`**: Your LINE Bot Channel Secret.
-- **`GEMINI_API_KEY`**: Your Google Gemini API Key.
-- **`REDIS_URL`**: Redis connection URL (default `redis://redis:6379`, for local development use `redis://localhost:6379`).
-- **`CLOUDFLARE_TUNNEL_TOKEN`**: (Optional) If you are using Cloudflare Tunnel, fill in your Tunnel Token.
+| Variable                  | Description                                                                 |
+| ------------------------- | --------------------------------------------------------------------------- |
+| `PORT`                    | The port for the Express server (default: `8000`).                          |
+| `NODE_ENV`                | Environment (`development` or `production`).                                |
+| `BASE_URL`                | Public URL for serving images (e.g., `https://your-domain.com`).            |
+| `LINE_CHANNEL_ACCESS_TOKEN` | Your LINE Bot's Channel Access Token.                                       |
+| `LINE_CHANNEL_SECRET`     | Your LINE Bot's Channel Secret.                                             |
+| `GEMINI_API_KEY`          | Your Google Gemini API Key.                                                 |
+| `REDIS_URL`               | Connection URL for Redis (e.g., `redis://redis:6379`).                      |
+| `CLOUDFLARE_TUNNEL_TOKEN` | (Optional) Your token for Cloudflare Tunnel.                                |
 
-  ```
-  # .env example
-  PORT=8000
-  NODE_ENV=development
-  BASE_URL=http://localhost # or https://line.example.com
-  LINE_CHANNEL_ACCESS_TOKEN=your_line_channel_access_token
-  LINE_CHANNEL_SECRET=your_line_channel_secret
-  GEMINI_API_KEY=your_gemini_api_key
-  REDIS_URL=redis://localhost:6379 # for local development
-  CLOUDFLARE_TUNNEL_TOKEN=eyJhIjoi... # Your Cloudflare Tunnel Token
-  ```
 
-## Running the Application
+### 3. Run the Application
 
-You can choose one of the following two ways to run the application:
+You can run the application using Docker Compose (recommended) or locally for development.
 
-### Option 1: Using Docker Compose (Recommended for Deployment)
+**Using Docker Compose (Production & Development):**
 
-This method starts all services (Cloudflare Tunnel, Nginx, Node.js App, Redis).
+This is the simplest way to start all required services.
 
 ```bash
 docker-compose up -d --build
 ```
 
-- **Cloudflare Tunnel Integration**:
-  - If `CLOUDFLARE_TUNNEL_TOKEN` is set in your `.env`, the `cloudflared` service will start and establish a secure tunnel.
-  - **If you are not using Cloudflare Tunnel**: You can ignore the `cloudflared` service in `docker-compose.yml`, or comment it out. Even if the `cloudflared` service fails to start due to a missing Token, other services (Nginx, App, Redis) will still run normally. In this case, Nginx will listen on ports 80 and 443 of your host machine.
+**Local Development:**
 
-### Option 2: Local Development (Node.js App on Host, Redis in Docker)
+This is useful for actively developing the Node.js application while running Redis in Docker.
 
-This method is suitable for local Node.js code development while leveraging Docker to quickly start dependent services like Redis.
-
-1.  **Start Redis Service**:
-
+1.  **Start Redis in Docker:**
     ```bash
     docker-compose -f docker-compose.dev.yml up -d
     ```
 
-    This will start the Redis service on `localhost:6379` of your host machine.
+2.  **Run the Node.js Server:**
+    (Ensure `REDIS_URL` in `.env` is set to `redis://localhost:6379`)
+    ```bash
+    pnpm run dev
+    ```
 
-2.  **Start Node.js Application Locally**:
-    - Ensure that `REDIS_URL` in your `.env` file is set to `redis://localhost:6379`.
-    - Run the development server:
-      ```bash
-      pnpm run dev
-      ```
+### 4. Setup Webhook
 
-## Cloudflare Tunnel Setup (Optional but Recommended for Production)
+Finally, configure your LINE Bot's webhook URL in the [LINE Developers Console](https://developers.line.biz/console/) to point to your public `BASE_URL`.
 
-Cloudflare Tunnel provides a secure way to expose your local services to the internet without opening any ports.
-
-1.  **Obtain Tunnel Token**:
-    - Log in to the Cloudflare Zero Trust dashboard (`dash.cloudflare.com`).
-    - Navigate to **Access** -> **Tunnels**.
-    - Create a new Tunnel and note down the Token it provides. Fill this Token into the `CLOUDFLARE_TUNNEL_TOKEN` variable in your `.env` file.
-
-2.  **Configure Public Hostname**:
-    - In the Cloudflare Zero Trust dashboard, go to your created Tunnel's configuration page.
-    - In the **Public Hostnames** section, click **Add a public hostname**.
-    - **Domain**: Select your primary domain (e.g., `example.com`).
-    - **Subdomain**: Enter your desired subdomain (e.g., `line`), which will form `line.example.com`.
-    - **Service**:
-      - **Type**: Select `HTTP`.
-      - **URL**: Enter `http://nginx:80`. This is the target where Cloudflare Tunnel will forward traffic, i.e., your Nginx service within the Docker Compose network.
-
-## LINE Bot Webhook Setup
-
-Finally, you need to configure your Bot's Webhook URL in the LINE Developers Console.
-
-- Log in to the LINE Developers Console.
-- Select your Provider and Channel.
-- In the **Messaging API** settings page, find **Webhook URL**.
-- Set it to your public domain followed by the `/webhook` path, for example:
-  ```
-  https://line.example.com/webhook
-  ```
-- Ensure **Use webhook** is enabled.
+- **Webhook URL**: `https://<your_base_url>/webhook`
+- Make sure to enable "Use webhook".
 
 ---
 
-## Contributing
+## 🤖 Bot Commands
 
-Contributions of any kind are welcome!
+Interact with the bot using the following commands:
 
-## License
+| Command         | Description                                          |
+| --------------- | ---------------------------------------------------- |
+| `/使用方式`       | Shows the help message.                              |
+| `/上傳人物圖片`   | Initiates the process to upload a person's image.    |
+| `/上傳衣物圖片`   | Initiates the process to upload a clothing image.    |
+| `/合成圖片`       | Starts the image synthesis process.                  |
+| `/瀏覽現有圖片`   | Shows a carousel of your currently uploaded images.  |
+| `/下載圖片`       | Displays the last generated image for download.      |
+| `/清除人物圖片`   | Deletes your uploaded person image.                  |
+| `/清除衣物圖片`   | Deletes your uploaded clothing image.                |
+| `/全部清除`       | Deletes all your data, including all images.         |
+| `/更多選項`       | Shows a menu with more actions.                      |
 
-MIT
+---
+
+## 🛠️ Development
+
+This project uses `pnpm` as the package manager.
+
+| Script      | Description                                                              |
+| ----------- | ------------------------------------------------------------------------ |
+| `pnpm dev`  | Starts the server in development mode with `nodemon` for auto-reloading. |
+| `pnpm build`| Compiles the TypeScript source code to JavaScript in the `/dist` folder. |
+| `pnpm start`| Starts the server in production mode from the compiled code.             |
+
+Linting and formatting are configured with ESLint and Prettier.
+
+---
+
+## 🤝 Contributing
+
+Contributions, issues, and feature requests are welcome!
+
+## 📄 License
+
+This project is [MIT](./LICENSE) licensed.
