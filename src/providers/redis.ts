@@ -19,7 +19,7 @@ class RedisProvider {
    * @private
    */
   private constructor() {
-    this.logger = ConsoleHandler.getInstance("RedisProvider");
+    this.logger = ConsoleHandler.getInstance("Redis");
     this.config = ConfigService.getInstance();
 
     const redisUrl = this.config.getConfig().REDIS_URL;

@@ -22,7 +22,28 @@ import {
 // Welcome Message
 export const welcomeMessage: messagingApi.TextMessage = {
   type: "text",
-  text: `歡迎使用雜七雜八試衣間！👋\n可以丟任何想要搭配的圖片幫你合成穿搭照.`,
+  text: `🎨 歡迎來到 雜七雜八試衣間 🎨
+  
+📸 步驟一：上傳人物圖片
+點擊「上傳人物圖片」按鈕，傳送您要合成的人物圖片
+
+👕 步驟二：上傳衣物圖片  
+點擊「上傳衣物圖片」按鈕，傳送您要試穿的服裝圖片
+
+✨ 自動合成：
+當您上傳完兩張圖片後，系統會自動進行合成處理並回傳結果
+
+🗑️ 管理圖片：
+• 清除人物圖片 - 刪除已上傳的人物照片
+• 清除衣物圖片 - 刪除已上傳的服裝照片  
+• 全部清除 - 清空所有已上傳的圖片
+
+⏰ 注意：
+• 圖片會在 30 分鐘後自動清除
+• 目前只支援一張人物圖片與一張衣物圖片合成
+• 人物照務必清晰，盡量避免陰影和模糊
+• 衣物照務必提供單純服裝照片，盡量避免太過複雜
+`,
   quickReply: {
     items: [...uploadCharacterReply, ...uploadClothingReply, ...helpReply],
   },
@@ -40,7 +61,29 @@ export const commandReply: messagingApi.TextMessage = {
 // Help Message
 export const helpMessage: messagingApi.TextMessage = {
   type: "text",
-  text: `🎨 歡迎來到 雜七雜八試衣間 🎨\n\n📸 步驟一：上傳人物圖片\n點擊「上傳人物圖片」按鈕，傳送您要合成的人物照片\n\n👕 步驟二：上傳衣物圖片  \n點擊「上傳衣物圖片」按鈕，傳送您要試穿的服裝照片\n\n✨ 自動合成：\n當您上傳完兩張圖片後，系統會自動進行合成處理並回傳結果\n\n🗑️ 管理圖片：\n• 清除人物圖片 - 刪除已上傳的人物照片\n• 清除衣物圖片 - 刪除已上傳的服裝照片  \n• 全部清除 - 清空所有已上傳的圖片\n\n⏰ 注意：\n• 圖片會在 30 分鐘後自動清除\n• 人物照務必清晰，盡量避免陰影和模糊\n• 衣物照務必提供單純服裝照片，盡量避免太過複雜\n          `,
+  text: `🎨 歡迎來到 雜七雜八試衣間 🎨
+  
+📸 步驟一：上傳人物圖片
+點擊「上傳人物圖片」按鈕，傳送您要合成的人物照片
+
+👕 步驟二：上傳衣物圖片  
+點擊「上傳衣物圖片」按鈕，傳送您要試穿的服裝照片
+
+✨ 自動合成：
+當您上傳完兩張圖片後，系統會自動進行合成處理並回傳結果
+
+🗑️ 管理圖片：
+• 清除人物圖片 - 刪除已上傳的人物照片
+• 清除衣物圖片 - 刪除已上傳的服裝照片  
+• 全部清除 - 清空所有已上傳的圖片
+
+⏰ 注意：
+• 圖片會在 30 分鐘後自動清除
+• 目前只支援一張人物圖片與一張衣物圖片合成
+• 人物照務必清晰，盡量避免陰影和模糊
+• 衣物照務必提供單純服裝照片，盡量避免太過複雜
+`,
+
   quickReply: {
     items: [...uploadCharacterReply, ...uploadClothingReply, ...helpReply],
   },
@@ -194,7 +237,8 @@ export const createUpdateCharacterInquiryMessage =
 
 /**
  * Creates a generic error message.
- * @param message - An optional custom error message text.\n * @returns A LINE text message object with retry options.
+ * @param message - An optional custom error message text.
+ * @returns A LINE text message object with retry options.
  */
 export const createErrorMessage = (
   message: string = "處理過程中發生錯誤，請稍後再試",
@@ -227,7 +271,8 @@ export const createImageStatusMessage = (
 };
 
 /**
- * Creates a menu message to be shown after a synthesis is complete.\n * @returns A LINE text message object with various options.
+ * Creates a menu message to be shown after a synthesis is complete.
+ * @returns A LINE text message object with various options.
  */
 export const createAfterSynthesisMenuMessage = (): messagingApi.TextMessage => {
   return {
@@ -240,7 +285,10 @@ export const createAfterSynthesisMenuMessage = (): messagingApi.TextMessage => {
 };
 
 /**
- * Creates a message to show the synthesis result.\n * @param characterId - The ID of the character image.\n * @param clothingId - The ID of the clothing image.\n * @returns A LINE text message object with result details.
+ * Creates a message to show the synthesis result.
+ * @param characterId - The ID of the character image.
+ * @param clothingId - The ID of the clothing image.
+ * @returns A LINE text message object with result details.
  */
 export const createSynthesisResultMessage = (
   characterId: string,
