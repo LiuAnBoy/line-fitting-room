@@ -19,7 +19,6 @@ class Server {
     });
 
     try {
-      // Close the Express server.
       await Express.shutdown();
       this.logger.log("Server closed.", { color: "yellow" });
 
@@ -36,12 +35,10 @@ class Server {
    * @private
    */
   private static registerShutdownHandlers(): void {
-    // Handle graceful shutdown signals.
     ["SIGTERM", "SIGINT", "SIGUSR2"].forEach((signal) => {
       process.on(signal, () => this.gracefulShutdown(signal));
     });
 
-    // Handle uncaught exceptions and unhandled promise rejections.
     process.on("unhandledRejection", (reason) => {
       this.logger.handleError(reason as Error);
       this.gracefulShutdown("UNHANDLED_REJECTION");
@@ -61,10 +58,8 @@ class Server {
     try {
       this.registerShutdownHandlers();
 
-      // Initialize the Express provider.
       await Express.init();
 
-      // Start the Express server.
       await Express.start();
 
       this.logger.log("Server started", { color: "green" });
@@ -75,5 +70,4 @@ class Server {
   }
 }
 
-// Run the server.
 Server.start();

@@ -6,7 +6,7 @@
 import dotenv from "dotenv";
 import * as fs from "fs";
 import Redis from "ioredis";
-import path from "path";
+import * as path from "path";
 import { z } from "zod";
 
 // Load environment variables from .env file before validation

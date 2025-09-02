@@ -5,7 +5,7 @@ import {
   messagingApi,
   WebhookEvent,
 } from "@line/bot-sdk";
-import crypto from "crypto";
+import * as crypto from "crypto";
 
 import LineProvider from "../providers/line";
 import ConsoleHandler from "../utils/consoleHandler";

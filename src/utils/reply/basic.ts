@@ -25,7 +25,7 @@ import {
  * This file combines the atomic components from atoms.ts to form common button layouts.
  */
 
-// ===== Basic Button Groups =====
+// Basic Button Groups
 
 export const uploadCharacterReply: messagingApi.QuickReplyItem[] = [
   uploadCharacterAction,
@@ -61,26 +61,26 @@ export const reGenerateReply: messagingApi.QuickReplyItem[] = [
   regenerateAction,
 ];
 
-// ===== Composite Button Groups =====
+// Composite Button Groups
 
-// --- Image type selection ---
+// Image type selection
 export const imageTypeReply: messagingApi.QuickReplyItem[] = imageTypeActions;
 
-// --- Update confirmation options ---
+// Update confirmation options
 export const updateClothingReply: messagingApi.QuickReplyItem[] =
   updateClothingActions;
 
 export const updateCharacterReply: messagingApi.QuickReplyItem[] =
   updateCharacterActions;
 
-// --- Restart options ---
+// Restart options
 export const startAgainReply: messagingApi.QuickReplyItem[] = [startAction];
 
 export const restartReply: messagingApi.QuickReplyItem[] = [restartAction];
 
 export const tryAgainReply: messagingApi.QuickReplyItem[] = [moreOptionsAction];
 
-// --- Complex Groups ---
+// Complex Groups
 
 export const retryReply: messagingApi.QuickReplyItem[] = [
   ...reGenerateReply,

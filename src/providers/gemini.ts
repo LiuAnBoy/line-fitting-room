@@ -1,6 +1,6 @@
 import { GoogleGenAI } from "@google/genai";
-import fs from "fs";
-import path from "path";
+import * as fs from "fs";
+import * as path from "path";
 
 import ConfigService from "../services/configService";
 import ConsoleHandler from "../utils/consoleHandler";
@@ -51,7 +51,6 @@ class GeminiProvider {
     clothingImagePath: string,
     userId: string,
   ): Promise<string> {
-    // Read image files and convert to base64
     const characterImageData = await this.readImageAsBase64(characterImagePath);
     const clothingImageData = await this.readImageAsBase64(clothingImagePath);
 
@@ -62,7 +61,6 @@ Adjust lighting and shadows so the outfit matches the existing scene.
 The final photo should look like a professional, high-resolution fashion e-commerce image, 
 with the person realistically wearing the clothing in the original background.`;
 
-    // Call Gemini API for image generation
     const response = await this.ai.models.generateContent({
       model: "gemini-2.5-flash-image-preview",
       contents: [
@@ -91,7 +89,6 @@ with the person realistically wearing the clothing in the original background.`;
       throw new Error("No image data found from Gemini API");
     }
 
-    // Save generated image to file system
     return await this.saveGeneratedImage(imageData, userId);
   }
 
@@ -121,17 +118,14 @@ with the person realistically wearing the clothing in the original background.`;
 
     const userImageDir = path.join(process.cwd(), "images", userId);
 
-    // Ensure user directory exists
     try {
       await fs.promises.access(userImageDir);
     } catch {
       await fs.promises.mkdir(userImageDir, { recursive: true });
     }
 
-    // Clean up old generated images
     await this.cleanupOldGeneratedImages(userImageDir);
 
-    // Generate unique filename with timestamp
     const timestamp = new Date().toISOString().replace(/[:.]/g, "-");
     const filename = `generated_${timestamp}.jpg`;
     const filePath = path.join(userImageDir, filename);
@@ -162,7 +156,6 @@ with the person realistically wearing the clothing in the original background.`;
         }),
       );
     } catch (error) {
-      // If directory doesn't exist or other errors, log but don't crash
       this.logger.handleError(error as Error);
     }
   }
@@ -173,8 +166,6 @@ with the person realistically wearing the clothing in the original background.`;
    */
   public async healthCheck(): Promise<boolean> {
     try {
-      // Simple API test - this would need actual implementation based on Gemini API docs
-      // For now, just check if we have a valid API key
       return Boolean(this.apiKey && this.apiKey.length > 0);
     } catch (error) {
       this.logger.handleError(error as Error);

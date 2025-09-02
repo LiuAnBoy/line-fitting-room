@@ -27,7 +27,6 @@ class LineController {
    */
   public webhook = async (req: Request, res: Response): Promise<void> => {
     try {
-      // Validate the X-Line-Signature header.
       const signature = req.headers["x-line-signature"] as string;
       if (!signature) {
         res.sendStatus(401).json({
@@ -37,10 +36,8 @@ class LineController {
         return;
       }
 
-      // Use the raw body for signature validation.
       const body = req.rawBody || JSON.stringify(req.body);
 
-      // Validate the signature via the service layer.
       const isValidSignature = await this.lineService.validateSignature(
         signature,
         body,
@@ -54,7 +51,6 @@ class LineController {
         return;
       }
 
-      // Check for event data.
       const events: WebhookEvent[] = req.body.events;
       if (!events || events.length === 0) {
         res.sendStatus(400).json({
@@ -64,10 +60,8 @@ class LineController {
         return;
       }
 
-      // Pass the events to the service layer for processing.
       await this.lineService.processWebhookEvents(events);
 
-      // Return a success response.
       res.sendStatus(200).json({
         success: true,
         message: "Events processed successfully",

@@ -77,7 +77,6 @@ class CommandService {
       ["更新衣物圖片", this.handleUpdateClothing.bind(this)],
       ["更新人物圖片", this.handleUpdateCharacter.bind(this)],
       ["直接合成", this.handleDirectSynthesize.bind(this)],
-      // Development only command
       ["/init", this.handleInit.bind(this)],
     ]);
   }
@@ -162,7 +161,6 @@ class CommandService {
     });
 
     if (userState === USER_STATES.WAITING_FOR_CHARACTER) {
-      // Passive flow: user was prompted to upload a character image.
       try {
         const hadClothingBefore =
           await this.imageCacheService.hasClothing(userId);
@@ -186,7 +184,6 @@ class CommandService {
         await this.sendReply(replyToken, [errorMessage]);
       }
     } else if (userState === USER_STATES.WAITING_FOR_CLOTHING) {
-      // Passive flow: user was prompted to upload a clothing image.
       try {
         await this.imageCacheService.saveImage(userId, imageId, "clothing");
         await this.setUserState(userId, USER_STATES.IDLE);
@@ -208,7 +205,6 @@ class CommandService {
         await this.sendReply(replyToken, [errorMessage]);
       }
     } else {
-      // Active flow: user sends an image unprompted.
       try {
         await this.setPendingImage(userId, imageId);
 
@@ -532,7 +528,7 @@ class CommandService {
             ? this.replyService.createWaitingForClothingMessage()
             : this.replyService.createWaitingForCharacterMessage();
 
-        // 使用快速回復來提示用戶下一步操作，包含原本的快速回復選項
+        // Add quick reply options for next steps
         const messageWithQuickReply: messagingApi.TextMessage = {
           type: "text",
           text: waitingMessage.text,
@@ -559,7 +555,7 @@ class CommandService {
           },
         };
 
-        // 使用 sendReply 替代 pushMessage
+        // Use sendReply instead of pushMessage
         await this.sendReply(replyToken, [messageWithQuickReply]);
         return; // 避免重複回應
       }
@@ -668,7 +664,6 @@ class CommandService {
     userId: string,
     replyToken: string,
   ): Promise<void> {
-    // Check if we can proceed with synthesis immediately
     const lockResult = await this.userStateService.executeWithLock(
       userId,
       "image_synthesis",
@@ -682,7 +677,6 @@ class CommandService {
       },
     );
 
-    // Handle lock acquisition failure - send busy message as reply
     if (!lockResult.success) {
       this.logger.log(
         `Synthesis blocked for user ${userId}: ${lockResult.error}`,
@@ -697,11 +691,9 @@ class CommandService {
       return;
     }
 
-    // Send processing message as reply with check results button
     const processingMessage = this.replyService.createProcessingMessage();
     await this.sendReply(replyToken, [processingMessage]);
 
-    // Start background synthesis and store results in Redis
     this.performBackgroundSynthesis(userId).catch((error) => {
       this.logger.handleError(error);
     });
@@ -724,7 +716,6 @@ class CommandService {
           },
         );
 
-        // Transition to generating_image state
         const stateTransitioned =
           await this.userStateService.transitionUserState(
             userId,
@@ -736,7 +727,6 @@ class CommandService {
           throw new Error("User is not in idle state, cannot start synthesis");
         }
 
-        // Set initial processing status in Redis
         await this.userStateService.setSynthesisResult(userId, {
           status: "processing",
           timestamp: Date.now(),
@@ -755,7 +745,6 @@ class CommandService {
             generatedImagePath,
           );
 
-          // Store successful result in Redis
           await this.userStateService.setSynthesisResult(userId, {
             status: "completed",
             imagePath: generatedImagePath,
@@ -766,13 +755,10 @@ class CommandService {
             color: "green",
           });
 
-          // Reset state to idle after successful synthesis
           await this.userStateService.setUserState(userId, USER_STATES.IDLE);
         } catch (error) {
-          // Reset state to idle on error
           await this.userStateService.setUserState(userId, USER_STATES.IDLE);
 
-          // Store failure result in Redis
           await this.userStateService.setSynthesisResult(userId, {
             status: "failed",
             errorMessage: (error as Error).message,
@@ -785,7 +771,6 @@ class CommandService {
     );
 
     if (result.error) {
-      // Store failure result for lock acquisition failure
       await this.userStateService.setSynthesisResult(userId, {
         status: "failed",
         errorMessage: result.error,
@@ -808,7 +793,6 @@ class CommandService {
       await this.userStateService.getSynthesisResult(userId);
 
     if (userState === USER_STATES.GENERATING_IMAGE) {
-      // Still processing
       const processingMessage =
         this.replyService.createStillProcessingMessage();
       await this.sendReply(replyToken, [processingMessage]);
@@ -816,7 +800,6 @@ class CommandService {
       synthesisResult?.status === "completed" &&
       synthesisResult.imagePath
     ) {
-      // Success - send result
       const generatedImageUrl = this.convertPathToUrl(
         synthesisResult.imagePath,
       );
@@ -830,17 +813,13 @@ class CommandService {
         );
       await this.sendReply(replyToken, [completedTextMessage, resultMessage]);
 
-      // Clear synthesis result after successful delivery
       await this.userStateService.clearSynthesisResult(userId);
     } else if (synthesisResult?.status === "failed") {
-      // Failed - send error with re-upload options
       const errorMessage = this.replyService.createSynthesisFailedMessage();
       await this.sendReply(replyToken, [errorMessage]);
 
-      // Clear synthesis result after error delivery
       await this.userStateService.clearSynthesisResult(userId);
     } else {
-      // No active synthesis or unknown status
       const noActiveMessage =
         this.replyService.createNoActiveSynthesisMessage();
       await this.sendReply(replyToken, [noActiveMessage]);

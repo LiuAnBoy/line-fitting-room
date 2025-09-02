@@ -75,9 +75,7 @@ class UserStateService {
     return UserStateService.instance;
   }
 
-  // ================================
   // State Management Methods
-  // ================================
 
   /**
    * Gets the Redis key for a user's state.
@@ -208,9 +206,7 @@ class UserStateService {
     }
   }
 
-  // ================================
   // Operation Lock Methods
-  // ================================
 
   /**
    * Gets the Redis key for a user's operation lock.
@@ -353,9 +349,7 @@ class UserStateService {
     }
   }
 
-  // ================================
   // Pending Image Methods
-  // ================================
 
   /**
    * Gets the Redis key for a user's pending image.
@@ -442,9 +436,7 @@ class UserStateService {
     }
   }
 
-  // ================================
   // Utility Methods
-  // ================================
 
   /**
    * Clears all user data (state, locks, pending images).

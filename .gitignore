@@ -77,8 +77,15 @@ todos/
 # docs
 docs/
 
-# MCP
+# AI
 .serena/
+.claude/
+.chatgpt/
+.deepseek/
+.google/
+.openai/
+.anthropic/
+.grok/
 
 # images
 images/

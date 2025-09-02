@@ -119,7 +119,6 @@ class ImageCacheService {
       await fs.promises.writeFile(filePath, imageBuffer);
       this.logger.log(`Saved ${type} image for user ${userId}: ${filePath}`);
 
-      // Store file path in Redis hash
       const redisKey = this.getUserImagesKey(userId);
       await this.redis.hset(redisKey, type, filePath);
       await this.redis.expire(redisKey, this.CACHE_TIMEOUT);
@@ -184,14 +183,13 @@ class ImageCacheService {
         await fs.promises.access(filePath);
         await fs.promises.unlink(filePath);
       } catch {
-        // File doesn't exist, continue
+        this.logger.log(`Character image file not found: ${filePath}`);
       }
     }
 
     const redisKey = this.getUserImagesKey(userId);
     await this.redis.hdel(redisKey, "character");
 
-    // Check if any other images remain
     const remainingImages = await this.redis.hkeys(redisKey);
     if (remainingImages.length === 0) {
       await this.redis.del(redisKey);
@@ -213,14 +211,13 @@ class ImageCacheService {
         await fs.promises.access(filePath);
         await fs.promises.unlink(filePath);
       } catch {
-        // File doesn't exist, continue
+        this.logger.log(`Clothing image file not found: ${filePath}`);
       }
     }
 
     const redisKey = this.getUserImagesKey(userId);
     await this.redis.hdel(redisKey, "clothing");
 
-    // Check if any other images remain
     const remainingImages = await this.redis.hkeys(redisKey);
     if (remainingImages.length === 0) {
       await this.redis.del(redisKey);
@@ -242,10 +239,9 @@ class ImageCacheService {
       await fs.promises.rm(userDir, { recursive: true, force: true });
       this.logger.log(`Removed user directory: ${userDir}`);
     } catch {
-      // Directory doesn't exist, continue
+      this.logger.log(`User directory not found: ${userDir}`);
     }
 
-    // Clear Redis hash
     const redisKey = this.getUserImagesKey(userId);
     await this.redis.del(redisKey);
 
@@ -355,7 +351,6 @@ class ImageCacheService {
     const redisKey = this.getUserImagesKey(userId);
     await this.redis.hdel(redisKey, "generated");
 
-    // Check if any other images remain
     const remainingImages = await this.redis.hkeys(redisKey);
     if (remainingImages.length === 0) {
       await this.redis.del(redisKey);

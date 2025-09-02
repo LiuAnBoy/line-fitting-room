@@ -5,9 +5,9 @@ import { messagingApi } from "@line/bot-sdk";
  * These are the basic building blocks for creating quick reply button menus.
  */
 
-// ===== Basic Action Atoms =====
+// Basic Action Atoms
 
-// --- Upload-related Actions ---
+// Upload-related Actions
 export const uploadCharacterAction: messagingApi.QuickReplyItem = {
   type: "action",
   action: {
@@ -26,7 +26,7 @@ export const uploadClothingAction: messagingApi.QuickReplyItem = {
   },
 };
 
-// --- Clear-related Actions ---
+// Clear-related Actions
 export const clearCharacterAction: messagingApi.QuickReplyItem = {
   type: "action",
   action: {
@@ -54,7 +54,7 @@ export const clearAllAction: messagingApi.QuickReplyItem = {
   },
 };
 
-// --- Function-related Actions ---
+// Function-related Actions
 export const synthesizeAction: messagingApi.QuickReplyItem = {
   type: "action",
   action: {
@@ -91,7 +91,7 @@ export const moreOptionsAction: messagingApi.QuickReplyItem = {
   },
 };
 
-// --- Camera-related Actions ---
+// Camera-related Actions
 export const cameraAction: messagingApi.QuickReplyItem = {
   type: "action",
   action: {
@@ -114,7 +114,7 @@ export const cameraActions: messagingApi.QuickReplyItem[] = [
   cameraRollAction,
 ];
 
-// --- Image Type Selection Actions ---
+// Image Type Selection Actions
 export const characterTypeAction: messagingApi.QuickReplyItem = {
   type: "action",
   action: {
@@ -139,7 +139,7 @@ export const imageTypeActions: messagingApi.QuickReplyItem[] = [
   clothingTypeAction,
 ];
 
-// --- Update Confirmation Actions ---
+// Update Confirmation Actions
 export const updateClothingAction: messagingApi.QuickReplyItem = {
   type: "action",
   action: {
@@ -178,7 +178,7 @@ export const updateCharacterActions: messagingApi.QuickReplyItem[] = [
   directSynthesizeAction,
 ];
 
-// --- Restart-related Actions ---
+// Restart-related Actions
 export const startAction: messagingApi.QuickReplyItem = {
   type: "action",
   action: {
@@ -197,7 +197,7 @@ export const restartAction: messagingApi.QuickReplyItem = {
   },
 };
 
-// --- Regenerate and Download Actions ---
+// Regenerate and Download Actions
 export const regenerateAction: messagingApi.QuickReplyItem = {
   type: "action",
   action: {
@@ -222,7 +222,7 @@ export const generatedImageActions: messagingApi.QuickReplyItem[] = [
   downloadAction,
 ];
 
-// ===== Special Label Versions for Menus =====
+// Special Label Versions for Menus
 
 export const uploadCharacterPhotoAction: messagingApi.QuickReplyItem = {
   type: "action",

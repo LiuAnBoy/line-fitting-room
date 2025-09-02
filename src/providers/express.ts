@@ -1,6 +1,6 @@
 import express, { Application } from "express";
-import http from "http";
-import path from "path";
+import * as http from "http";
+import * as path from "path";
 
 import ConfigService from "../services/configService";
 import ConsoleHandler from "../utils/consoleHandler";
