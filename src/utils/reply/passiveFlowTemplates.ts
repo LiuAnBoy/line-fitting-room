@@ -50,7 +50,7 @@ export const welcomeMessage: messagingApi.TextMessage = {
  */
 export const requestCharacterMessage: messagingApi.TextMessage = {
   type: "text",
-  text: "請上傳一張您的人物照片",
+  text: "好的，我們開始吧！請先傳一張您的照片📸",
   quickReply: {
     items: [
       {
@@ -76,7 +76,7 @@ export const requestCharacterMessage: messagingApi.TextMessage = {
  */
 export const requestClothingMessage: messagingApi.TextMessage = {
   type: "text",
-  text: "已接受人物圖片，請上傳衣物圖片",
+  text: "收到人物照囉！接下來，請傳一件想試穿的衣服照片給我👕",
   quickReply: {
     items: [
       {
@@ -110,7 +110,7 @@ export const requestClothingMessage: messagingApi.TextMessage = {
  */
 export const processingMessage: messagingApi.TextMessage = {
   type: "text",
-  text: "合成中，請稍候⋯",
+  text: "魔法正在發生中...🪄 請稍候片刻，我正在努力為您合成圖片！",
   quickReply: {
     items: [
       {
@@ -130,7 +130,7 @@ export const processingMessage: messagingApi.TextMessage = {
  */
 export const stillProcessingMessage: messagingApi.TextMessage = {
   type: "text",
-  text: "圖片還在生成中，請稍後再試一次喔！",
+  text: "別急別急～圖片還在烤箱裡，再等一下下就好囉！🔥",
   quickReply: {
     items: [
       {
@@ -150,7 +150,7 @@ export const stillProcessingMessage: messagingApi.TextMessage = {
  */
 export const synthesisCompleteMessage: messagingApi.TextMessage = {
   type: "text",
-  text: "圖片已完成！",
+  text: "噹噹噹！您的專屬試穿照出爐啦！✨",
 };
 
 /**
@@ -158,7 +158,7 @@ export const synthesisCompleteMessage: messagingApi.TextMessage = {
  */
 export const postSynthesisOptionsMessage: messagingApi.TextMessage = {
   type: "text",
-  text: "請選擇您想要進行的操作：",
+  text: "看看結果如何？您可以選擇...",
   quickReply: {
     items: [
       {
@@ -202,7 +202,7 @@ export const postSynthesisOptionsMessage: messagingApi.TextMessage = {
  */
 export const multiImageWarningMessage: messagingApi.TextMessage = {
   type: "text",
-  text: "您一次傳送了多張圖片，系統將只處理第一張。",
+  text: "哎呀，您一次傳了好多張照片！我先拿第一張來處理囉😉",
 };
 
 /**
@@ -210,7 +210,7 @@ export const multiImageWarningMessage: messagingApi.TextMessage = {
  */
 export const characterClearedMessage: messagingApi.TextMessage = {
   type: "text",
-  text: "✅ 人物圖片已清除",
+  text: "OK！人物照片已經幫您清掉囉！",
 };
 
 /**
@@ -218,7 +218,7 @@ export const characterClearedMessage: messagingApi.TextMessage = {
  */
 export const clothingClearedMessage: messagingApi.TextMessage = {
   type: "text",
-  text: "✅ 衣物圖片已清除",
+  text: "好的！衣物照片已經成功清除！",
 };
 
 /**
@@ -226,7 +226,7 @@ export const clothingClearedMessage: messagingApi.TextMessage = {
  */
 export const allClearedMessage: messagingApi.TextMessage = {
   type: "text",
-  text: "✅ 所有圖片已清除",
+  text: "全部清空空！我們又可以重新開始囉！🧹",
 };
 
 /**
@@ -236,7 +236,7 @@ export const createErrorMessage = (
   message?: string,
 ): messagingApi.TextMessage => ({
   type: "text",
-  text: message || "❌ 發生錯誤，請稍後再試",
+  text: message || "糟糕！好像有地方出錯了，請稍後再試一次看看？",
 });
 
 /**
@@ -255,7 +255,7 @@ export const createSynthesisResultImageMessage = (
  */
 export const requestReUploadCharacterMessage: messagingApi.TextMessage = {
   type: "text",
-  text: "請重新上傳您的人物圖片",
+  text: "換張主角照片試試？請上傳新的人物圖片！🧑‍🎨",
   quickReply: {
     items: [
       { type: "action", action: { type: "camera", label: "開啟相機" } },
@@ -269,7 +269,7 @@ export const requestReUploadCharacterMessage: messagingApi.TextMessage = {
  */
 export const requestReUploadClothingMessage: messagingApi.TextMessage = {
   type: "text",
-  text: "請重新上傳您的衣物圖片",
+  text: "換件新衣服吧！請上傳新的衣物圖片！👚",
   quickReply: {
     items: [
       { type: "action", action: { type: "camera", label: "開啟相機" } },

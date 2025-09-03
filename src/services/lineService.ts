@@ -1,7 +1,6 @@
 import { WebhookEvent } from "@line/bot-sdk";
 import * as crypto from "crypto";
 
-import LineProvider from "../providers/line";
 import ConsoleHandler from "../utils/consoleHandler";
 import ConfigService from "./configService";
 import FlowManagerService, { FlowEvent } from "./flowManagerService";

@@ -1,5 +1,6 @@
 import express, { Application } from "express";
 import * as http from "http";
+import { Socket } from "net";
 import * as path from "path";
 
 import ConfigService from "../services/configService";
@@ -16,7 +17,7 @@ class Express {
   public express: Application;
   public server: http.Server | null;
   private logger: ConsoleHandler;
-  private activeConnections: { [key: string]: any } = {};
+  private activeConnections: { [key: string]: Socket } = {};
 
   /**
    * @constructor
@@ -179,7 +180,7 @@ class Express {
         `Closing ${Object.keys(this.activeConnections).length} active connections...`,
         { color: "yellow" },
       );
-      Object.values(this.activeConnections).forEach((socket: any) => {
+      Object.values(this.activeConnections).forEach((socket) => {
         socket.destroy();
       });
       this.activeConnections = {};

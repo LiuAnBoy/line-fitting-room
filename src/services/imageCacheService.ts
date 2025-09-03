@@ -450,7 +450,7 @@ class ImageCacheService {
           this.logger.log(`Deleted old generated image: ${filePath}`);
         }),
       );
-    } catch (error) {
+    } catch {
       this.logger.log(`No old generated images to cleanup for user ${userId}`);
     }
   }
