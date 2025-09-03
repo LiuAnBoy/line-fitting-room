@@ -297,9 +297,11 @@ class FlowOrchestratorService {
       if (!imageUrl) {
         throw new Error("Generated image URL not available");
       }
-      const successMessage =
+      const imageMessage =
         this.replyService.createSynthesisResultImageReply(imageUrl);
-      await this.sendReply(event.replyToken, [successMessage]);
+      const optionsMessage =
+        this.replyService.createPostSynthesisOptionsReply();
+      await this.sendReply(event.replyToken, [imageMessage, optionsMessage]);
 
       // Reset to idle
       await this.userStateService.setUserState(event.userId, USER_STATES.IDLE);
