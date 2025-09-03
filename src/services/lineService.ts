@@ -3,17 +3,18 @@ import * as crypto from "crypto";
 
 import ConsoleHandler from "../utils/consoleHandler";
 import ConfigService from "./configService";
-import FlowManagerService, { FlowEvent } from "./flowManagerService";
+import FlowOrchestratorService from "./flow/flowOrchestratorService";
+import { FlowEvent } from "./flowManagerService";
 
 /**
  * @class LineService
- * @description Pure webhook router - delegates all business logic to FlowManagerService
+ * @description Pure webhook router - delegates all business logic to FlowOrchestratorService
  */
 class LineService {
   private static instance: LineService;
   private logger = ConsoleHandler.getInstance("LineService");
   private config: ConfigService;
-  private flowManager: FlowManagerService;
+  private flowOrchestrator: FlowOrchestratorService;
 
   /**
    * Private constructor for the Singleton pattern.
@@ -21,7 +22,7 @@ class LineService {
    */
   private constructor() {
     this.config = ConfigService.getInstance();
-    this.flowManager = FlowManagerService.getInstance();
+    this.flowOrchestrator = FlowOrchestratorService.getInstance();
   }
 
   /**
@@ -182,9 +183,9 @@ class LineService {
         return;
     }
 
-    // Delegate to FlowManager if we have a valid FlowEvent
+    // Delegate to FlowOrchestrator if we have a valid FlowEvent
     if (flowEvent) {
-      await this.flowManager.processEvent(flowEvent);
+      await this.flowOrchestrator.processEvent(flowEvent);
     }
   }
 }
