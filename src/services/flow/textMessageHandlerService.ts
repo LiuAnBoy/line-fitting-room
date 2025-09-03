@@ -190,6 +190,7 @@ class TextMessageHandlerService {
         await handlers.regenerateImage(event);
         break;
       case PassiveCommand.REUPLOAD_CHARACTER: {
+        await handlers.clearCharacterImage(event);
         await this.userStateService.setUserState(
           event.userId,
           USER_STATES.PASSIVE_AWAITING_CHARACTER,
@@ -200,6 +201,7 @@ class TextMessageHandlerService {
         break;
       }
       case PassiveCommand.REUPLOAD_CLOTHING: {
+        await handlers.clearClothingImage(event);
         await this.userStateService.setUserState(
           event.userId,
           USER_STATES.PASSIVE_AWAITING_CLOTHING,
@@ -241,9 +243,9 @@ class TextMessageHandlerService {
         await handlers.handleClearAllCommand(event);
         break;
       default: {
-        // Remind user what we're expecting
-        const requestMessage = this.replyService.createRequestCharacterReply();
-        await sendReply(event.replyToken, [requestMessage]);
+        // Error: expecting image but received text message
+        const errorMessage = this.replyService.createExpectingImageErrorReply();
+        await sendReply(event.replyToken, [errorMessage]);
       }
     }
   }
@@ -269,9 +271,9 @@ class TextMessageHandlerService {
         await handlers.handleClearAllCommand(event);
         break;
       default: {
-        // Remind user what we're expecting
-        const requestMessage = this.replyService.createRequestClothingReply();
-        await sendReply(event.replyToken, [requestMessage]);
+        // Error: expecting image but received text message
+        const errorMessage = this.replyService.createExpectingImageErrorReply();
+        await sendReply(event.replyToken, [errorMessage]);
       }
     }
   }
@@ -327,6 +329,7 @@ class TextMessageHandlerService {
         await handlers.regenerateImage(event);
         break;
       case PassiveCommand.REUPLOAD_CHARACTER: {
+        await handlers.clearCharacterImage(event);
         await this.userStateService.setUserState(
           event.userId,
           USER_STATES.PASSIVE_AWAITING_CHARACTER,
@@ -375,6 +378,7 @@ class TextMessageHandlerService {
         await handlers.regenerateImage(event);
         break;
       case PassiveCommand.REUPLOAD_CHARACTER: {
+        await handlers.clearCharacterImage(event);
         await this.userStateService.setUserState(
           event.userId,
           USER_STATES.PASSIVE_AWAITING_CHARACTER,
@@ -385,6 +389,7 @@ class TextMessageHandlerService {
         break;
       }
       case PassiveCommand.REUPLOAD_CLOTHING: {
+        await handlers.clearClothingImage(event);
         await this.userStateService.setUserState(
           event.userId,
           USER_STATES.PASSIVE_AWAITING_CLOTHING,

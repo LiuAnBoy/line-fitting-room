@@ -121,6 +121,13 @@ class ReplyService {
   }
 
   /**
+   * Error message when expecting image but received non-image message
+   */
+  public createExpectingImageErrorReply(): messagingApi.TextMessage {
+    return passiveTemplates.expectingImageErrorMessage;
+  }
+
+  /**
    * Generic error message
    */
   public createErrorReply(message?: string): messagingApi.TextMessage {

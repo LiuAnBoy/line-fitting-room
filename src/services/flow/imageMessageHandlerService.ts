@@ -226,12 +226,13 @@ class ImageMessageHandlerService {
           );
           return { transitioned, hasCharacter: true };
         } else {
-          // This shouldn't happen in normal flow, but handle gracefully
-          this.logger.log(
-            "Clothing uploaded without character - unexpected state",
-            { color: "yellow" },
+          // Transition to awaiting character
+          const transitioned = await this.userStateService.transitionUserState(
+            event.userId,
+            USER_STATES.PASSIVE_AWAITING_CLOTHING,
+            USER_STATES.PASSIVE_AWAITING_CHARACTER,
           );
-          return { transitioned: false, hasCharacter: false };
+          return { transitioned, hasCharacter: false };
         }
       },
     );
@@ -249,9 +250,9 @@ class ImageMessageHandlerService {
             this.logger.handleError(error);
           });
       } else {
-        const errorMessage =
-          this.replyService.createErrorReply("請先上傳人物圖片");
-        await sendReply(event.replyToken, [errorMessage]);
+        // Request character image
+        const message = this.replyService.createRequestCharacterReply();
+        await sendReply(event.replyToken, [message]);
       }
     } else {
       const errorMessage =

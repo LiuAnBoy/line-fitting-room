@@ -211,6 +211,12 @@ export const multiImageWarningMessage: messagingApi.TextMessage = {
 export const characterClearedMessage: messagingApi.TextMessage = {
   type: "text",
   text: "OK！人物照片已經幫您清掉囉！",
+  quickReply: {
+    items: [
+      { type: "action", action: { type: "camera", label: "開啟相機" } },
+      { type: "action", action: { type: "cameraRoll", label: "開啟相簿" } },
+    ],
+  },
 };
 
 /**
@@ -219,6 +225,12 @@ export const characterClearedMessage: messagingApi.TextMessage = {
 export const clothingClearedMessage: messagingApi.TextMessage = {
   type: "text",
   text: "好的！衣物照片已經成功清除！",
+  quickReply: {
+    items: [
+      { type: "action", action: { type: "camera", label: "開啟相機" } },
+      { type: "action", action: { type: "cameraRoll", label: "開啟相簿" } },
+    ],
+  },
 };
 
 /**
@@ -227,6 +239,14 @@ export const clothingClearedMessage: messagingApi.TextMessage = {
 export const allClearedMessage: messagingApi.TextMessage = {
   type: "text",
   text: "全部清空空！我們又可以重新開始囉！🧹",
+  quickReply: {
+    items: [
+      {
+        type: "action",
+        action: { type: "message", label: "開始使用", text: "開始使用" },
+      },
+    ],
+  },
 };
 
 /**
@@ -270,6 +290,20 @@ export const requestReUploadCharacterMessage: messagingApi.TextMessage = {
 export const requestReUploadClothingMessage: messagingApi.TextMessage = {
   type: "text",
   text: "換件新衣服吧！請上傳新的衣物圖片！👚",
+  quickReply: {
+    items: [
+      { type: "action", action: { type: "camera", label: "開啟相機" } },
+      { type: "action", action: { type: "cameraRoll", label: "開啟相簿" } },
+    ],
+  },
+};
+
+/**
+ * Error message when expecting image but received non-image message
+ */
+export const expectingImageErrorMessage: messagingApi.TextMessage = {
+  type: "text",
+  text: "哎呀！我正在等您上傳圖片呢📸\n請傳送圖片給我，而不是文字訊息喔～",
   quickReply: {
     items: [
       { type: "action", action: { type: "camera", label: "開啟相機" } },
