@@ -30,7 +30,7 @@ class PromptService {
   private static instance: PromptService;
   private prompts: Map<PromptKey, string> = new Map();
   private logger = consoleHandler.getInstance("PromptService");
-  private readonly promptsDir = path.join(process.cwd(), "src", "prompts");
+  private readonly promptsDir = path.join(process.cwd(), "prompts");
 
   /**
    * Private constructor for the Singleton pattern.

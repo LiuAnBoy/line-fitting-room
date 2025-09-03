@@ -1,13 +1,16 @@
 # AI 提示詞管理
 
-本資料夾包含所有 AI 服務使用的提示詞檔案。
+本資料夾包含所有 AI 服務使用的提示詞檔案，位於專案根目錄。
 
 ## 檔案結構
 
 ```
-prompts/
-├── README.md                # 本說明文件
-└── image-synthesis.md       # 圖片合成提示詞
+line-fitting-room/
+├── src/
+├── prompts/                 # AI 提示詞檔案目錄
+│   ├── README.md            # 本說明文件
+│   └── image-synthesis.md   # 圖片合成提示詞
+└── package.json
 ```
 
 ## 使用規則
