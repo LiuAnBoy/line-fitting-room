@@ -37,20 +37,7 @@ class LineController {
         return;
       }
 
-      // Debug logging for body parsing
-      this.logger.log("Webhook request details:", { color: "cyan" });
-      this.logger.log(`- Raw body available: ${!!req.rawBody}`, {
-        color: "cyan",
-      });
-      this.logger.log(`- Raw body length: ${req.rawBody?.length || 0}`, {
-        color: "cyan",
-      });
-      this.logger.log(`- Parsed body available: ${!!req.body}`, {
-        color: "cyan",
-      });
-
       const body = req.rawBody || JSON.stringify(req.body);
-      this.logger.log(`- Using body length: ${body.length}`, { color: "cyan" });
 
       const isValidSignature = await this.lineService.validateSignature(
         signature,
@@ -75,9 +62,6 @@ class LineController {
         return;
       }
 
-      this.logger.log(`Processing ${events.length} webhook events`, {
-        color: "green",
-      });
       await this.lineService.processWebhookEvents(events);
 
       res.status(200).json({
