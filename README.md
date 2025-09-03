@@ -1,28 +1,38 @@
-# LINE AI Fitting Room
+# LINE AI 虛擬試衣間
 
-An AI-powered virtual fitting room LINE Bot. This application allows users to upload images of a person and an item of clothing, then utilizes the Google Gemini API to generate a new image of the person wearing the selected garment.
-
----
-
-## ✨ Features
-
-- **AI-Powered Virtual Try-On**: Leverages Google Gemini to synthesize clothing onto a person's image.
-- **Interactive Bot Commands**: A rich set of commands for a complete user experience.
-- **Stateful Conversations**: Remembers user state (e.g., waiting for a specific image) for a natural workflow.
-- **Image Caching**: Uses Redis to cache uploaded images, improving performance.
-- **Robust Configuration**: Employs Zod for strict, fail-fast environment variable validation on startup.
-- **Containerized**: Fully containerized with Docker and Docker Compose for easy setup and deployment.
+一個由 AI 驅動的 LINE 虛擬試衣間機器人。此應用程式允許使用者上傳人物和衣物的圖片，並利用 Google Gemini API 來生成使用者穿上該服裝的新圖片。
 
 ---
 
-## 🏛️ Architecture Overview
+## ✨ 功能亮點
 
-The application consists of a main Node.js/Express server that handles the LINE webhook, and communicates with external services for its core functionality.
+- **AI 虛擬試衣**：利用 Google Gemini 將服裝合成到人物圖片上。
+- **狀態機架構**：採用了以 `FlowManagerService` 為核心的狀態機模式，取代了複雜的指令判斷，使流程清晰且易於擴展。
+- **引導式流程**：為新使用者提供引導式的被動流程，一步步完成操作。
+- **圖片快取**：使用 Redis 快取使用者上傳的圖片，提升效能並管理圖片的生命週期（30分鐘後自動清除）。
+- **穩健的設定**：啟動時使用 Zod 進行嚴格的環境變數驗證，提早發現設定錯誤。
+- **容器化**：使用 Docker 和 Docker Compose 完整容器化，簡化了開發和部署的流程。
+
+---
+
+## 🏛️ 系統架構
+
+本應用程式的核心是一個 Node.js/Express 伺服器，它負責處理來自 LINE 的 Webhook 事件，並透過一個清晰的服務導向架構（Service-Oriented Architecture）來處理所有業務邏輯。
+
+### 服務導向架構
+
+- **`LineService`**: 作為 Webhook 的純粹路由器，驗證簽名後，將事件轉發給流程管理器。
+- **`FlowManagerService`**: **核心狀態機**。根據使用者的當前狀態和收到的事件，決定要執行哪個動作以及下一個狀態。
+- **`CommandParserService`**: 將使用者輸入的文字（如「開始使用」）解析為標準化的指令物件。
+- **`UserStateService`**: 專職管理 Redis 中的使用者狀態（例如，`PASSIVE_AWAITING_CHARACTER`）。
+- **`ImageCacheService`**: 負責所有圖片的下載、存儲和快取管理。
+- **`ReplyService`**: 根據意圖，從模板中生成對應的 LINE 訊息物件。
+- **`AIService`**: 專門處理與 Google Gemini API 的所有互動。
 
 ```
-+-----------------+      +-----------------+      +----------------------+
-|   User on LINE  | <--> |   LINE Platform | <--> |  Express Server (App)| 
-+-----------------+      +-----------------+      +----------------------+
++-----------------+      +-----------------+      +-------------------------+
+|   User on LINE  | <--> |   LINE Platform | <--> |  Express Server (App)   |
++-----------------+      +-----------------+      +-------------------------+
                                                      |           ^
                                                      |           |
                                                      v           |
@@ -34,17 +44,15 @@ The application consists of a main Node.js/Express server that handles the LINE 
 
 ---
 
-## 🚀 Getting Started
+## 🚀快速開始
 
-### Prerequisites
+### 環境需求
 
-- [Node.js](https://nodejs.org/) (v18 or higher)
-- [pnpm](https://pnpm.io/) (v10 or higher)
-- [Docker](https://www.docker.com/) and [Docker Compose](https://docs.docker.com/compose/)
+- [Node.js](https://nodejs.org/) (v18 或更高版本)
+- [pnpm](https://pnpm.io/) (v10 或更高版本)
+- [Docker](https://www.docker.com/) 和 [Docker Compose](https://docs.docker.com/compose/)
 
-### 1. Clone & Install
-
-Clone the repository and install the dependencies:
+### 1. 複製專案並安裝依賴
 
 ```bash
 git clone https://github.com/your-repo/line-fitting-room.git
@@ -52,9 +60,9 @@ cd line-fitting-room
 pnpm install
 ```
 
-### 2. Configure Environment
+### 2. 設定環境變數
 
-Copy the example `.env` file and fill in your credentials.
+複製 `.env.example` 檔案為 `.env`，並填入您的金鑰。
 
 ```bash
 cp .env.example .env
@@ -62,91 +70,79 @@ cp .env.example .env
 
 **`/.env`**
 
-| Variable                  | Description                                                                 |
-| ------------------------- | --------------------------------------------------------------------------- |
-| `PORT`                    | The port for the Express server (default: `8000`).                          |
-| `NODE_ENV`                | Environment (`development` or `production`).                                |
-| `BASE_URL`                | Public URL for serving images (e.g., `https://your-domain.com`).            |
-| `LINE_CHANNEL_ACCESS_TOKEN` | Your LINE Bot's Channel Access Token.                                       |
-| `LINE_CHANNEL_SECRET`     | Your LINE Bot's Channel Secret.                                             |
-| `GEMINI_API_KEY`          | Your Google Gemini API Key.                                                 |
-| `REDIS_URL`               | Connection URL for Redis (e.g., `redis://redis:6379`).                      |
-| `CLOUDFLARE_TUNNEL_TOKEN` | (Optional) Your token for Cloudflare Tunnel.                                |
+| 變數                        | 描述                                                      |
+| --------------------------- | --------------------------------------------------------- |
+| `PORT`                      | Express 伺服器的埠號 (預設: `8000`)。                     |
+| `NODE_ENV`                  | 環境 (`development` 或 `production`)。                    |
+| `BASE_URL`                  | 用於提供圖片的公開網址 (例如 `https://your-domain.com`)。 |
+| `LINE_CHANNEL_ACCESS_TOKEN` | 您的 LINE Bot 的 Channel Access Token。                   |
+| `LINE_CHANNEL_SECRET`       | 您的 LINE Bot 的 Channel Secret。                         |
+| `GEMINI_API_KEY`            | 您的 Google Gemini API 金鑰。                             |
+| `REDIS_URL`                 | Redis 的連線網址 (例如 `redis://127.0.0.1:6379`)。        |
+| `CLOUDFLARE_TUNNEL_TOKEN`   | (選用) 您的 Cloudflare Tunnel 權杖。                      |
 
+### 3. 啟動應用程式
 
-### 3. Run the Application
+您可以使用 Docker Compose（推薦）或在本地端啟動。
 
-You can run the application using Docker Compose (recommended) or locally for development.
+**使用 Docker Compose (生產和開發環境):**
 
-**Using Docker Compose (Production & Development):**
-
-This is the simplest way to start all required services.
+這是啟動所有服務最簡單的方式。
 
 ```bash
 docker-compose up -d --build
 ```
 
-**Local Development:**
+**本地端開發:**
 
-This is useful for actively developing the Node.js application while running Redis in Docker.
+如果您想在本地端修改 Node.js 程式碼，同時在 Docker 中運行 Redis。
 
-1.  **Start Redis in Docker:**
+1.  **在 Docker 中啟動 Redis:**
+
     ```bash
     docker-compose -f docker-compose.dev.yml up -d
     ```
 
-2.  **Run the Node.js Server:**
-    (Ensure `REDIS_URL` in `.env` is set to `redis://localhost:6379`)
+2.  **啟動 Node.js 伺服器:**
+    (請確保 `.env` 中的 `REDIS_URL` 指向 `redis://127.0.0.1:6379`)
     ```bash
-    pnpm run dev
+    pnpm run server
     ```
 
-### 4. Setup Webhook
+### 4. 設定 Webhook
 
-Finally, configure your LINE Bot's webhook URL in the [LINE Developers Console](https://developers.line.biz/console/) to point to your public `BASE_URL`.
+最後，在 [LINE Developers Console](https://developers.line.biz/console/) 中設定您的 LINE Bot 的 Webhook URL，使其指向您的公開網址。
 
 - **Webhook URL**: `https://<your_base_url>/webhook`
-- Make sure to enable "Use webhook".
+- 請確保已啟用 "Use webhook"。
 
 ---
 
-## 🤖 Bot Commands
+## 🤖 機器人指令
 
-Interact with the bot using the following commands:
+透過以下指令與機器人互動：
 
-| Command         | Description                                          |
-| --------------- | ---------------------------------------------------- |
-| `/使用方式`       | Shows the help message.                              |
-| `/上傳人物圖片`   | Initiates the process to upload a person's image.    |
-| `/上傳衣物圖片`   | Initiates the process to upload a clothing image.    |
-| `/合成圖片`       | Starts the image synthesis process.                  |
-| `/瀏覽現有圖片`   | Shows a carousel of your currently uploaded images.  |
-| `/下載圖片`       | Displays the last generated image for download.      |
-| `/清除人物圖片`   | Deletes your uploaded person image.                  |
-| `/清除衣物圖片`   | Deletes your uploaded clothing image.                |
-| `/全部清除`       | Deletes all your data, including all images.         |
-| `/更多選項`       | Shows a menu with more actions.                      |
+| 指令               | 描述                                     |
+| ------------------ | ---------------------------------------- |
+| `開始使用`         | 啟動引導式流程，開始上傳圖片。           |
+| `查看結果`         | 在合成過程中，用來查詢合成是否已完成。   |
+| `重新生成`         | 使用已上傳的兩張圖片，重新進行一次合成。 |
+| `重新上傳人物圖片` | 重新上傳人物圖片，並與現有衣物圖片合成。 |
+| `重新上傳衣物圖片` | 重新上傳衣物圖片，並與現有人物圖片合成。 |
+| `清除人物圖片`     | 僅刪除已上傳的人物圖片。                 |
+| `清除衣物圖片`     | 僅刪除已上傳的衣物圖片。                 |
+| `清除全部`         | 刪除您所有的資料，並重新開始流程。       |
 
 ---
 
-## 🛠️ Development
+## 🛠️ 開發
 
-This project uses `pnpm` as the package manager.
+本專案使用 `pnpm` 作為套件管理器。
 
-| Script      | Description                                                              |
-| ----------- | ------------------------------------------------------------------------ |
-| `pnpm dev`  | Starts the server in development mode with `nodemon` for auto-reloading. |
-| `pnpm build`| Compiles the TypeScript source code to JavaScript in the `/dist` folder. |
-| `pnpm start`| Starts the server in production mode from the compiled code.             |
+| 指令          | 描述                                                |
+| ------------- | --------------------------------------------------- |
+| `pnpm server` | 在開發模式下啟動伺服器，使用 `nodemon` 自動重載。   |
+| `pnpm build`  | 將 TypeScript 編譯為 JavaScript 到 `/dist` 資料夾。 |
+| `pnpm start`  | 在生產模式下，從編譯後的程式碼啟動伺服器。          |
 
-Linting and formatting are configured with ESLint and Prettier.
-
----
-
-## 🤝 Contributing
-
-Contributions, issues, and feature requests are welcome!
-
-## 📄 License
-
-This project is [MIT](./LICENSE) licensed.
+Linting 和格式化已透過 ESLint 和 Prettier 進行設定。
