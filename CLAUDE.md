@@ -37,7 +37,7 @@ Copy `.env.example` to `.env` and configure:
 
 ### Core System Design
 
-The application follows a **provider-service-controller pattern** with **Redis-based state management** and **reply-only messaging** for improved reliability and user experience.
+The application follows a **refactored flow-based architecture** with **Redis-based state management** and **passive user-guided flows** for improved reliability and user experience.
 
 **Provider Layer** (`src/providers/`):
 - `RedisProvider` - Redis connection management with singleton pattern
@@ -46,48 +46,53 @@ The application follows a **provider-service-controller pattern** with **Redis-b
 - `ExpressProvider` - Express.js server setup and middleware
 
 **Service Layer** (`src/services/`):
-- `UserStateService` - Redis-based state management with atomic operations
-- `CommandService` - Business logic and command routing
-- `LineService` - LINE webhook event processing
+- `FlowManagerService` - Core state machine for managing user flows and business logic
+- `CommandParserService` - Text message parsing into standardized command objects
+- `UserStateService` - Redis-based state management with atomic operations and locks
+- `LineService` - LINE webhook event processing and message routing
 - `ImageCacheService` - Redis-backed file system image storage
-- `ReplyService` - LINE message composition using atomic components
+- `ReplyService` - LINE message composition using passive flow templates
+- `AIService` - AI image synthesis coordination
 - `ConfigService` - Environment configuration management
 
-**Atomic UI System** (`src/utils/reply/`):
-- `atoms.ts` - Reusable LINE UI components (buttons, actions)
-- `basic.ts` - Composite UI arrays built from atoms
-- `messages.ts` - Complete message templates with Flex Messages
+**Passive Flow Templates** (`src/utils/reply/`):
+- `passiveFlowTemplates.ts` - Complete message templates for passive user-guided flows
 
-### Redis-Based State Management
+### Refactored State Management
 
-The application uses **Redis for all state persistence** with automatic TTL and atomic operations:
+The application uses **Redis for all state persistence** with atomic operations and distributed locks:
 
 **UserStateService** (`src/services/userStateService.ts`):
-- **User States**: `idle`, `waiting_for_character`, `waiting_for_clothing`, `waiting_for_image_type`, `generating_image`
-- **Operation Locks**: Prevents concurrent operations with 2-minute timeout
+- **User States**: `idle`, `passive_awaiting_character`, `passive_awaiting_clothing`, `generating_image`, `passive_awaiting_result_check_character`, `passive_awaiting_result_check_clothing`, `active_awaiting_image_type`
+- **Distributed Locks**: Prevents concurrent operations with 2-minute timeout using Redis SET NX EX
 - **Pending Images**: 5-minute TTL for image type confirmation
 - **Synthesis Results**: 30-minute TTL for background processing results
-- **Atomic State Transitions**: Lua script-based transitions for consistency
+- **Atomic State Transitions**: Thread-safe state changes with validation
 
-**Key Features**:
-- Thread-safe operations with Redis locks
-- Automatic cleanup with configurable TTL
-- State transition validation
-- Background operation coordination
+**Enhanced Lock System**:
+- Operation-specific locks: `user:lock:{userId}:{operation}`
+- Automatic lock cleanup with TTL
+- Lock exclusion patterns for safe data clearing
+- Concurrent operation protection
 
-### User-Driven Synthesis Flow
+### Passive User-Guided Flow System
 
-**Reply-Only Architecture**: All bot responses use `replyMessage` instead of `pushMessage` for better user experience and LINE API compliance.
+**FlowManagerService** (`src/services/flowManagerService.ts`):
+- **Event-Driven Architecture**: Processes TEXT_MESSAGE, IMAGE_MESSAGE, and FOLLOW events
+- **State-Aware Routing**: Routes events based on current user state
+- **Command Processing**: Integrates with CommandParserService for text command parsing
 
-**Dual-Mode Image Upload**:
-- **Active Mode**: User uploads image → Bot asks for type → Processes accordingly
-- **Passive Mode**: User selects type → Bot waits for image → Auto-processes when complete
+**Command System** (`src/services/commandParserService.ts`):
+- **Standardized Commands**: START_FLOW, CHECK_RESULT, REGENERATE, REUPLOAD_CHARACTER, REUPLOAD_CLOTHING, CLEAR_CHARACTER, CLEAR_CLOTHING, CLEAR_ALL, DEV_INIT
+- **Text-to-Command Mapping**: Chinese and English command recognition
+- **Unknown Command Handling**: Graceful fallback for unrecognized inputs
 
-**Background Synthesis Process**:
-1. User initiates synthesis → Immediate reply with processing message
-2. Background synthesis runs with Redis result storage
-3. User polls for results via "/查看結果" command
-4. Success/failure handled with appropriate retry options
+**Core User Flow**:
+1. **Welcome State** (`idle`): User starts with welcome message and "開始使用" button
+2. **Character Upload** (`passive_awaiting_character`): Guided character image upload
+3. **Clothing Upload** (`passive_awaiting_clothing`): Guided clothing image upload  
+4. **Background Synthesis** (`generating_image`): Automatic synthesis initiation
+5. **Result Check** (`passive_awaiting_result_check_character/clothing`): Results polling with re-upload options
 
 ### Enhanced Image Management
 
@@ -96,34 +101,35 @@ The application uses **Redis for all state persistence** with automatic TTL and 
 - **Redis Metadata**: Image paths stored in Redis hashes with TTL
 - **Automatic Cleanup**: 30-minute inactivity cleanup for both files and Redis
 - **URL Generation**: Public URLs with timestamp cache busting
+- **Complete Clearing**: `clearAll()` method for development reset
 
 **Image Types**:
 - `character.jpg` - Person/character image
 - `clothing.jpg` - Clothing item image  
 - `generated_{timestamp}.jpg` - AI-synthesized results
 
-### Command System Architecture
+### State-Specific Message Handling
 
-**CommandService** handles all business logic with modular command handlers:
+**Flow State Routing**:
+- **Idle State**: Command processing for START_FLOW, REGENERATE, REUPLOAD operations, DEV_INIT
+- **Awaiting Character**: Clear operations and default reminders
+- **Awaiting Clothing**: Clear operations and default reminders  
+- **Generating Image**: Status checking and user feedback
+- **Result Check States**: Result polling, regeneration, re-upload options
 
-**Core Commands**:
-- Upload commands: `/上傳人物圖片`, `/上傳衣物圖片`
-- Clear commands: `/清除人物圖片`, `/清除衣物圖片`, `/全部清除`
-- Synthesis commands: `/合成圖片`, `/開始合成`, `/查看結果`
-- Utility commands: `/瀏覽現有圖片`, `/使用方式`, `/更多選項`
-
-**State-Aware Processing**:
-- Automatic synthesis trigger when both images present
-- Context-sensitive error handling with retry options
-- Quick reply suggestions based on current user state
+**Re-upload Flow Enhancement**:
+- **Separate Result States**: `passive_awaiting_result_check_character` and `passive_awaiting_result_check_clothing`
+- **Context-Aware Re-upload**: Maintains context of last uploaded image type
+- **Precise Messaging**: Dedicated re-upload messages ("請重新上傳您的人物圖片", "請重新上傳您的衣物圖片")
 
 ### Synthesis Result Management
 
 **Background Processing with Redis Storage**:
 - **Processing State**: User state transitions to `generating_image`
-- **Result Storage**: Success/failure stored in Redis with metadata
-- **User Polling**: Users check results via dedicated command
-- **Error Recovery**: Failed synthesis provides re-upload options
+- **Result Storage**: Success/failure stored in Redis with metadata and TTL
+- **User Polling**: Users check results via "查看結果" command
+- **Error Recovery**: Failed synthesis provides specific re-upload options
+- **Image Type Context**: Tracks which image type was uploaded last for proper routing
 
 **Synthesis States**:
 - `processing` - Synthesis in progress
@@ -132,16 +138,18 @@ The application uses **Redis for all state persistence** with automatic TTL and 
 
 ### LINE Message System
 
-**Atomic Design Pattern**:
-- **Atoms**: Individual UI components (buttons, actions)
-- **Molecules**: Composite arrays for specific contexts
-- **Templates**: Complete Flex Messages with dynamic content
-
-**Key Message Types**:
-- **Quick Reply Messages**: Context-sensitive button options
-- **Flex Carousel**: Browse images with generated results prioritized
+**Passive Flow Templates**:
+- **Welcome Messages**: Guided onboarding with step-by-step instructions
+- **Request Messages**: Context-specific upload requests with camera/gallery options
 - **Processing Messages**: User-friendly synthesis status updates
+- **Result Messages**: Success/failure feedback with action buttons
+- **Re-upload Messages**: Specific messages for re-upload scenarios
 - **Error Messages**: Clear error descriptions with recovery actions
+
+**Quick Reply Integration**:
+- Camera and gallery access for image uploads
+- Context-sensitive action buttons
+- State-appropriate command suggestions
 
 ### Development Infrastructure
 
@@ -173,20 +181,24 @@ The application uses **Redis for all state persistence** with automatic TTL and 
 **Data Patterns**:
 - Hash storage for user image metadata: `user:{userId}:images`
 - String storage for user states: `user:state:{userId}`
-- Lock keys for operation coordination: `user:lock:{userId}`
+- Lock keys for operation coordination: `user:lock:{userId}:{operation}`
+- Pending images: `user:pending:{userId}`
+- Synthesis results: `user:synthesis:{userId}`
 - TTL-based automatic cleanup
 
 ### Concurrency and Race Condition Prevention
 
-**Operation Locks**:
+**Distributed Lock System**:
 - Atomic lock acquisition using Redis SET NX EX
+- Operation-specific locks (character_upload, clothing_upload, synthesis, dev_init)
 - 2-minute lock timeout prevents stuck operations
 - Automatic lock cleanup on operation completion
+- Lock exclusion patterns for safe data clearing
 
 **State Transitions**:
-- Lua script-based atomic state changes
-- Expected state validation prevents race conditions
+- Thread-safe state transitions with expected state validation
 - Failed transitions logged for debugging
+- Atomic operations prevent race conditions
 
 ### Error Recovery and User Experience
 
@@ -194,11 +206,13 @@ The application uses **Redis for all state persistence** with automatic TTL and 
 - Background synthesis isolates errors from user interaction
 - Failed synthesis provides specific re-upload guidance
 - Redis result storage enables reliable status checking
+- Context-aware error recovery based on last uploaded image type
 
 **Image Upload Resilience**:
 - Duplicate upload protection via state management
 - Clear error messages for failed image processing
 - Quick retry options for transient failures
+- State-aware upload flow routing
 
 ### Development and Debugging
 
@@ -208,7 +222,8 @@ The application uses **Redis for all state persistence** with automatic TTL and 
 - Operation timing and performance monitoring
 
 **Development Commands**:
-- `/init` command for development state reset (dev only)
+- `/init` command for complete development state reset (dev only)
+- Safe data clearing with lock exclusion
 - Redis statistics available via service methods
 - Image cache statistics for debugging
 
@@ -216,3 +231,38 @@ The application uses **Redis for all state persistence** with automatic TTL and 
 - Environment-based feature flags
 - Graceful service degradation
 - Resource monitoring and cleanup
+- Distributed lock management
+
+## Recent Architecture Changes
+
+### Major Refactoring (Current Implementation)
+
+**Removed Components**:
+- `CommandService` - Replaced by `FlowManagerService` + `CommandParserService`
+- Atomic UI system (`atoms.ts`, `basic.ts`, `messages.ts`) - Replaced by `passiveFlowTemplates.ts`
+
+**New Components**:
+- `FlowManagerService` - Central state machine and business logic coordinator
+- `CommandParserService` - Standardized command parsing and mapping
+- `passiveFlowTemplates.ts` - Complete passive flow message templates
+
+**Enhanced Features**:
+- **Split Result Check States**: Separate states for character and clothing result checking
+- **Improved Re-upload Flow**: Context-aware re-upload with precise messaging
+- **Enhanced Lock Management**: Operation-specific locks with exclusion patterns
+- **Better Error Handling**: State-aware error recovery and user guidance
+- **Development Tools**: Enhanced `/init` command with safe concurrent operations
+
+### Flow State Machine Updates
+
+**New State Definitions**:
+- `PASSIVE_AWAITING_RESULT_CHECK_CHARACTER` - After character-driven synthesis
+- `PASSIVE_AWAITING_RESULT_CHECK_CLOTHING` - After clothing-driven synthesis
+- Removed: `PASSIVE_AWAITING_RESULT_CHECK` (replaced by context-specific states)
+
+**Event Handling**:
+- State-specific event routing in `FlowManagerService`
+- Command parsing integration with passive flow templates
+- Context preservation across state transitions
+
+This refactored architecture provides better user experience, improved reliability, and cleaner separation of concerns while maintaining all existing functionality with enhanced error handling and development tools.

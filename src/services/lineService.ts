@@ -1,50 +1,26 @@
-import {
-  FollowEvent,
-  ImageEventMessage,
-  MessageEvent,
-  messagingApi,
-  WebhookEvent,
-} from "@line/bot-sdk";
+import { WebhookEvent } from "@line/bot-sdk";
 import * as crypto from "crypto";
 
 import LineProvider from "../providers/line";
 import ConsoleHandler from "../utils/consoleHandler";
-import CommandService from "./commandService";
 import ConfigService from "./configService";
-import ImageCacheService from "./imageCacheService";
-import ReplyService from "./replyService";
-import { USER_STATES } from "./userStateService";
+import FlowManagerService, { FlowEvent } from "./flowManagerService";
 
 /**
  * @class LineService
- * @description Main service for handling LINE webhook events.
- * It validates signatures and dispatches events to appropriate handlers.
+ * @description Pure webhook router - delegates all business logic to FlowManagerService
  */
 class LineService {
   private static instance: LineService;
-  private lineProvider: LineProvider;
-  private imageCacheService: ImageCacheService;
-  private replyService: ReplyService;
-  private commandService: CommandService;
   private logger = ConsoleHandler.getInstance("LineService");
   private config: ConfigService;
+  private flowManager: FlowManagerService;
 
-  /**
-   * Private constructor for the Singleton pattern.
-   * @private
-   */
   private constructor() {
-    this.lineProvider = LineProvider.getInstance();
-    this.imageCacheService = ImageCacheService.getInstance();
-    this.replyService = ReplyService.getInstance();
     this.config = ConfigService.getInstance();
-    this.commandService = CommandService.getInstance();
+    this.flowManager = FlowManagerService.getInstance();
   }
 
-  /**
-   * Gets the singleton instance of the LineService.
-   * @returns {LineService} The singleton instance.
-   */
   public static getInstance(): LineService {
     if (!LineService.instance) {
       LineService.instance = new LineService();
@@ -53,170 +29,147 @@ class LineService {
   }
 
   /**
-   * Validates the webhook signature from LINE.
-   * @param {string} signature - The value of the 'x-line-signature' header.
-   * @param {string} body - The raw request body as a string.
-   * @returns {Promise<boolean>} True if the signature is valid, false otherwise.
+   * Validate LINE webhook signature
    */
   public async validateSignature(
     signature: string,
     body: string,
   ): Promise<boolean> {
-    try {
-      const channelSecret = this.config.getConfig().LINE_CHANNEL_SECRET;
-      const hash = crypto
-        .createHmac("SHA256", channelSecret)
-        .update(body)
-        .digest("base64");
+    const channelSecret = this.config.getConfig().LINE_CHANNEL_SECRET;
 
-      return hash === signature;
-    } catch (error) {
-      this.logger.handleError(error as Error);
+    // Debug logging for troubleshooting
+    this.logger.log(`Signature validation attempt:`, { color: "cyan" });
+    this.logger.log(`- Received signature: ${signature}`, { color: "cyan" });
+    this.logger.log(`- Body length: ${body.length}`, { color: "cyan" });
+    this.logger.log(
+      `- Channel secret configured: ${channelSecret ? "Yes" : "No"}`,
+      { color: "cyan" },
+    );
+    this.logger.log(`- Channel secret length: ${channelSecret?.length || 0}`, {
+      color: "cyan",
+    });
+
+    if (!channelSecret) {
+      this.logger.log("❌ Channel secret is missing!", { color: "red" });
       return false;
+    }
+
+    const expectedSignature = crypto
+      .createHmac("sha256", channelSecret)
+      .update(body)
+      .digest("base64");
+
+    // LINE sends signature without SHA256= prefix
+    this.logger.log(`- Expected signature: ${expectedSignature}`, {
+      color: "cyan",
+    });
+    this.logger.log(`- Signatures match: ${signature === expectedSignature}`, {
+      color: signature === expectedSignature ? "green" : "red",
+    });
+
+    return signature === expectedSignature;
+  }
+
+  /**
+   * Process incoming webhook events
+   */
+  public async processWebhookEvents(events: WebhookEvent[]): Promise<void> {
+    // Process events sequentially to maintain state consistency
+    for (const event of events) {
+      try {
+        await this.processEvent(event);
+      } catch (error) {
+        this.logger.handleError(error as Error);
+      }
     }
   }
 
   /**
-   * Processes an array of webhook events from a single request.
-   * @param {WebhookEvent[]} events - The array of events from the webhook.
+   * Convert LINE webhook event to FlowEvent and delegate to FlowManager
    */
-  public async processWebhookEvents(events: WebhookEvent[]): Promise<void> {
-    await Promise.all(events.map((event) => this.handleEvent(event)));
-  }
+  private async processEvent(event: WebhookEvent): Promise<void> {
+    const { source } = event;
 
-  /**
-   * Routes a single webhook event to the appropriate handler based on its type.
-   * @param {WebhookEvent} event - The event to handle.
-   * @private
-   */
-  private async handleEvent(event: WebhookEvent): Promise<void> {
-    this.logger.log(`Processing event: ${event.type}`, { color: "blue" });
+    // Not all events have replyToken
+    const replyToken = "replyToken" in event ? event.replyToken : "";
+
+    // Extract user ID
+    let userId: string;
+    if (source.type === "user") {
+      userId = source.userId;
+    } else if (source.type === "group") {
+      userId = source.groupId;
+    } else if (source.type === "room") {
+      userId = source.roomId;
+    } else {
+      this.logger.log("Unsupported source type", { color: "yellow" });
+      return;
+    }
+
+    // Convert to FlowEvent based on event type
+    let flowEvent: FlowEvent | null = null;
 
     switch (event.type) {
-      case "message":
-        await this.handleMessageEvent(event);
-        break;
       case "follow":
-        await this.handleFollowEvent(event);
+        flowEvent = {
+          type: "FOLLOW",
+          userId,
+          replyToken,
+        };
         break;
+
+      case "message":
+        if (event.message.type === "text") {
+          flowEvent = {
+            type: "TEXT_MESSAGE",
+            text: event.message.text,
+            userId,
+            replyToken,
+          };
+        } else if (event.message.type === "image") {
+          flowEvent = {
+            type: "IMAGE_MESSAGE",
+            imageId: event.message.id,
+            userId,
+            replyToken,
+          };
+        } else {
+          this.logger.log(`Unsupported message type: ${event.message.type}`, {
+            color: "yellow",
+          });
+          return;
+        }
+        break;
+
       case "unfollow":
-        await this.handleUnfollowEvent(event);
-        break;
+        // Clean up user data when user unfollows
+        // Note: No replyToken available for unfollow events, so we can't send responses
+        this.logger.log(`User ${userId} unfollowed`, { color: "cyan" });
+        // Could add cleanup logic here if needed
+        return;
+
+      case "join":
+        // Bot added to group/room
+        this.logger.log(`Bot joined group/room: ${userId}`, { color: "cyan" });
+        // Could add welcome logic for groups if needed
+        return;
+
+      case "leave":
+        // Bot removed from group/room
+        this.logger.log(`Bot left group/room: ${userId}`, { color: "cyan" });
+        // Could add cleanup logic here if needed
+        return;
+
       default:
         this.logger.log(`Unhandled event type: ${event.type}`, {
           color: "yellow",
         });
+        return;
     }
-  }
 
-  /**
-   * Handles message events, dispatching to text or image handlers.
-   * @param {MessageEvent} event - The message event.
-   * @private
-   */
-  private async handleMessageEvent(event: MessageEvent): Promise<void> {
-    const userId = event.source.userId as string;
-
-    try {
-      if (event.message.type === "text") {
-        await this.handleTextMessage(
-          userId as string,
-          event.message.text,
-          event.replyToken,
-        );
-      } else if (event.message.type === "image") {
-        await this.handleImageMessage(userId, event.message, event.replyToken);
-      } else {
-        // Handle unsupported message types.
-        const replyMessage = this.replyService.createErrorMessage(
-          "Unsupported message type. Please send text or an image.",
-        );
-        await this.sendReply(event.replyToken, [replyMessage]);
-      }
-    } catch (error) {
-      this.logger.handleError(error as Error);
-      const errorMessage = this.replyService.createErrorMessage();
-      await this.sendReply(event.replyToken, [errorMessage]);
-    }
-  }
-
-  /**
-   * Delegates text message handling to the CommandService.
-   * @private
-   */
-  private async handleTextMessage(
-    userId: string,
-    text: string,
-    replyToken: string,
-  ): Promise<void> {
-    this.logger.log(`Text message from ${userId}: ${text}`, { color: "cyan" });
-    await this.commandService.handleCommand(userId, text, replyToken);
-  }
-
-  /**
-   * Handles incoming image messages based on the current user state.
-   * @private
-   */
-  private async handleImageMessage(
-    userId: string,
-    message: ImageEventMessage,
-    replyToken: string,
-  ): Promise<void> {
-    const imageId = message.id;
-
-    this.logger.log(`Image message from ${userId}`, {
-      color: "cyan",
-    });
-
-    // Delegate to CommandService which now handles all state management
-    await this.commandService.handleImageMessage(userId, imageId, replyToken);
-  }
-
-  /**
-   * Sends a reply message using the LINE Messaging API.
-   * @private
-   */
-  private async sendReply(
-    replyToken: string,
-    messages: messagingApi.Message[],
-  ): Promise<void> {
-    const client = this.lineProvider.getMessagingClient();
-    await client.replyMessage({
-      replyToken,
-      messages,
-    });
-  }
-
-  /**
-   * Handles the 'follow' event when a user adds the bot.
-   * @param {FollowEvent} event - The follow event.
-   * @private
-   */
-  private async handleFollowEvent(event: FollowEvent): Promise<void> {
-    const userId = event.source?.userId;
-    this.logger.log(`User ${userId} followed the bot`, { color: "green" });
-
-    if (event.replyToken && userId) {
-      await this.commandService.setUserState(userId, USER_STATES.IDLE);
-      const welcomeMessage = this.replyService.createWelcomeMessage();
-      await this.sendReply(event.replyToken, [welcomeMessage]);
-    }
-  }
-
-  /**
-   * Handles the 'unfollow' event and cleans up user data.
-   * @param {WebhookEvent} event - The unfollow event.
-   * @private
-   */
-  private async handleUnfollowEvent(event: WebhookEvent): Promise<void> {
-    const userId = event.source?.userId;
-    if (userId) {
-      await this.commandService.clearUserState(userId);
-      await this.commandService.clearPendingImage(userId);
-      await this.imageCacheService.clearAll(userId);
-      this.logger.log(`User ${userId} unfollowed the bot and data cleared`, {
-        color: "yellow",
-      });
+    // Delegate to FlowManager if we have a valid FlowEvent
+    if (flowEvent) {
+      await this.flowManager.processEvent(flowEvent);
     }
   }
 }

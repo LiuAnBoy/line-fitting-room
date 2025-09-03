@@ -29,14 +29,28 @@ class LineController {
     try {
       const signature = req.headers["x-line-signature"] as string;
       if (!signature) {
-        res.sendStatus(401).json({
+        this.logger.warn("Missing x-line-signature header");
+        res.status(401).json({
           success: false,
           message: "Missing LINE signature",
         });
         return;
       }
 
+      // Debug logging for body parsing
+      this.logger.log("Webhook request details:", { color: "cyan" });
+      this.logger.log(`- Raw body available: ${!!req.rawBody}`, {
+        color: "cyan",
+      });
+      this.logger.log(`- Raw body length: ${req.rawBody?.length || 0}`, {
+        color: "cyan",
+      });
+      this.logger.log(`- Parsed body available: ${!!req.body}`, {
+        color: "cyan",
+      });
+
       const body = req.rawBody || JSON.stringify(req.body);
+      this.logger.log(`- Using body length: ${body.length}`, { color: "cyan" });
 
       const isValidSignature = await this.lineService.validateSignature(
         signature,
@@ -44,7 +58,7 @@ class LineController {
       );
       if (!isValidSignature) {
         this.logger.warn("Invalid LINE signature");
-        res.sendStatus(401).json({
+        res.status(401).json({
           success: false,
           message: "Invalid signature",
         });
@@ -53,22 +67,26 @@ class LineController {
 
       const events: WebhookEvent[] = req.body.events;
       if (!events || events.length === 0) {
-        res.sendStatus(400).json({
+        this.logger.warn("No events in webhook request");
+        res.status(400).json({
           success: false,
           message: "No events to process",
         });
         return;
       }
 
+      this.logger.log(`Processing ${events.length} webhook events`, {
+        color: "green",
+      });
       await this.lineService.processWebhookEvents(events);
 
-      res.sendStatus(200).json({
+      res.status(200).json({
         success: true,
         message: "Events processed successfully",
       });
     } catch (error) {
       this.logger.handleError(error as Error);
-      res.sendStatus(500).json({
+      res.status(500).json({
         success: false,
         message: "Webhook processing failed",
       });

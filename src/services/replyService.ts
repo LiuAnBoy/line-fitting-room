@@ -1,47 +1,16 @@
 import { messagingApi } from "@line/bot-sdk";
 
-import {
-  allClearedMessage,
-  characterImageClearedMessage,
-  clothingImageClearedMessage,
-  commandReply,
-  createAfterSynthesisMenuMessage,
-  createBrowseImagesMessage,
-  createErrorMessage,
-  createImageReceivedMessage,
-  createImageStatusMessage,
-  createImageTypeInquiryMessage,
-  createSynthesisResultMessage,
-  createUpdateCharacterInquiryMessage,
-  createUpdateClothingInquiryMessage,
-  helpMessage,
-  noActiveSynthesisMessage,
-  processingMessage,
-  stillProcessingMessage,
-  synthesisFailedMessage,
-  waitingForCharacterMessage,
-  waitingForClothingMessage,
-  welcomeMessage,
-} from "../utils/reply/messages";
+import * as passiveTemplates from "../utils/reply/passiveFlowTemplates";
 
 /**
  * @class ReplyService
- * @description A factory service for creating various LINE message objects.
- * It encapsulates the logic for generating message structures.
+ * @description Intent-based reply service for the refactored architecture
  */
 class ReplyService {
   private static instance: ReplyService;
 
-  /**
-   * Private constructor for the Singleton pattern.
-   * @private
-   */
   private constructor() {}
 
-  /**
-   * Gets the singleton instance of the ReplyService.
-   * @returns {ReplyService} The singleton instance.
-   */
   public static getInstance(): ReplyService {
     if (!ReplyService.instance) {
       ReplyService.instance = new ReplyService();
@@ -49,230 +18,113 @@ class ReplyService {
     return ReplyService.instance;
   }
 
+  // === Passive Flow Replies ===
+
   /**
-   * Creates a reply message with buttons for all available commands.
-   * @returns {messagingApi.TextMessage} A LINE text message object.
+   * Welcome message with start button
    */
-  public createCommandReply(): messagingApi.TextMessage {
-    return commandReply;
+  public createWelcomeReply(): messagingApi.TextMessage {
+    return passiveTemplates.welcomeMessage;
   }
 
   /**
-   * Creates a welcome message for new users.
-   * @returns {messagingApi.TextMessage} A LINE text message object.
+   * Request character image upload
    */
-  public createWelcomeMessage(): messagingApi.TextMessage {
-    return welcomeMessage;
+  public createRequestCharacterReply(): messagingApi.TextMessage {
+    return passiveTemplates.requestCharacterMessage;
   }
 
   /**
-   * Creates a help message with instructions on how to use the bot.
-   * @returns {messagingApi.TextMessage} A LINE text message object.
+   * Request clothing image upload
    */
-  public createHelpMessage(): messagingApi.TextMessage {
-    return helpMessage;
+  public createRequestClothingReply(): messagingApi.TextMessage {
+    return passiveTemplates.requestClothingMessage;
   }
 
   /**
-   * Creates a confirmation message for clearing the character image.
-   * @returns {messagingApi.TextMessage} A LINE text message object.
+   * Processing message during synthesis
    */
-  public createCharacterImageClearedMessage(): messagingApi.TextMessage {
-    return characterImageClearedMessage;
+  public createProcessingReply(): messagingApi.TextMessage {
+    return passiveTemplates.processingMessage;
   }
 
   /**
-   * Creates a confirmation message for clearing the clothing image.
-   * @returns {messagingApi.TextMessage} A LINE text message object.
+   * Still processing message
    */
-  public createClothingImageClearedMessage(): messagingApi.TextMessage {
-    return clothingImageClearedMessage;
+  public createStillProcessingReply(): messagingApi.TextMessage {
+    return passiveTemplates.stillProcessingMessage;
   }
 
   /**
-   * Creates a confirmation message for clearing all images.
-   * @returns {messagingApi.TextMessage} A LINE text message object.
+   * Synthesis complete message
    */
-  public createAllClearedMessage(): messagingApi.TextMessage {
-    return allClearedMessage;
+  public createSynthesisCompleteReply(): messagingApi.TextMessage {
+    return passiveTemplates.synthesisCompleteMessage;
   }
 
   /**
-   * Creates a message to inform the user that processing is in progress.
-   * @returns {messagingApi.TextMessage} A LINE text message object.
+   * Post-synthesis options
    */
-  public createProcessingMessage(): messagingApi.TextMessage {
-    return processingMessage;
+  public createPostSynthesisOptionsReply(): messagingApi.TextMessage {
+    return passiveTemplates.postSynthesisOptionsMessage;
   }
 
   /**
-   * Creates a message prompting the user to upload a character image.
-   * @returns {messagingApi.TextMessage} A LINE text message object.
+   * Multi-image warning
    */
-  public createWaitingForCharacterMessage(): messagingApi.TextMessage {
-    return waitingForCharacterMessage;
+  public createMultiImageWarningReply(): messagingApi.TextMessage {
+    return passiveTemplates.multiImageWarningMessage;
   }
 
   /**
-   * Creates a message prompting the user to upload a clothing image.
-   * @returns {messagingApi.TextMessage} A LINE text message object.
+   * Character image cleared confirmation
    */
-  public createWaitingForClothingMessage(): messagingApi.TextMessage {
-    return waitingForClothingMessage;
+  public createCharacterClearedReply(): messagingApi.TextMessage {
+    return passiveTemplates.characterClearedMessage;
   }
 
   /**
-   * Creates a confirmation message after an image has been received.
-   * @param {'character' | 'clothing'} type - The type of image received.
-   * @returns {messagingApi.TextMessage} A LINE text message object.
+   * Clothing image cleared confirmation
    */
-  public createImageReceivedMessage(
-    type: "character" | "clothing",
-  ): messagingApi.TextMessage {
-    return createImageReceivedMessage(type);
+  public createClothingClearedReply(): messagingApi.TextMessage {
+    return passiveTemplates.clothingClearedMessage;
   }
 
   /**
-   * Creates a generic error message.
-   * @param {string} [message] - An optional custom error message.
-   * @returns {messagingApi.TextMessage} A LINE text message object.
+   * All images cleared confirmation
    */
-  public createErrorMessage(message?: string): messagingApi.TextMessage {
-    return createErrorMessage(message);
+  public createAllClearedReply(): messagingApi.TextMessage {
+    return passiveTemplates.allClearedMessage;
   }
 
   /**
-   * Creates a menu message to be shown after image synthesis is complete.
-   * @returns {messagingApi.TextMessage} A LINE text message object.
+   * Synthesis result image message
    */
-  public createAfterSynthesisMenuMessage(): messagingApi.TextMessage {
-    return createAfterSynthesisMenuMessage();
-  }
-
-  /**
-   * Creates a dynamic status message with quick replies based on image availability.
-   * @param {boolean} hasCharacter - Whether the user has a character image.
-   * @param {boolean} hasClothing - Whether the user has a clothing image.
-   * @param {string} [message] - An optional introductory message.
-   * @returns {messagingApi.TextMessage} A LINE text message object.
-   */
-  public createImageStatusMessage(
-    hasCharacter: boolean,
-    hasClothing: boolean,
-    message?: string,
-  ): messagingApi.TextMessage {
-    return createImageStatusMessage(hasCharacter, hasClothing, message);
-  }
-
-  /**
-   * Creates a text message showing the result of the synthesis (legacy).
-   * @param {string} characterId - The ID of the character image.
-   * @param {string} clothingId - The ID of the clothing image.
-   * @returns {messagingApi.TextMessage} A LINE text message object.
-   */
-  public createSynthesisResultMessage(
-    characterId: string,
-    clothingId: string,
-  ): messagingApi.TextMessage {
-    return createSynthesisResultMessage(characterId, clothingId);
-  }
-
-  /**
-   * Creates an image message containing the synthesized result.
-   * @param {string} generatedImageUrl - The public URL of the generated image.
-   * @returns {messagingApi.ImageMessage} A LINE image message object.
-   */
-  public createSynthesisResultWithImageMessage(
-    generatedImageUrl: string,
+  public createSynthesisResultImageReply(
+    imageUrl: string,
   ): messagingApi.ImageMessage {
-    return {
-      type: "image",
-      originalContentUrl: generatedImageUrl,
-      previewImageUrl: generatedImageUrl,
-      quickReply: {
-        items: [
-          {
-            type: "action",
-            action: {
-              type: "message",
-              label: "更多選項",
-              text: "/更多選項",
-            },
-          },
-          {
-            type: "action",
-            action: {
-              type: "message",
-              label: "全部清除",
-              text: "/全部清除",
-            },
-          },
-        ],
-      },
-    };
+    return passiveTemplates.createSynthesisResultImageMessage(imageUrl);
   }
 
   /**
-   * Creates a Flex Message carousel to browse the user's current images.
-   * @param {string | null} characterUrl - The URL of the character image.
-   * @param {string | null} clothingUrl - The URL of the clothing image.
-   * @param {string | null} [generatedUrl] - The URL of the generated image.
-   * @returns {messagingApi.FlexMessage} A LINE Flex Message object.
+   * Request re-upload of character image
    */
-  public createBrowseImagesMessage(
-    characterUrl: string | null,
-    clothingUrl: string | null,
-    generatedUrl: string | null = null,
-  ): messagingApi.FlexMessage {
-    return createBrowseImagesMessage(characterUrl, clothingUrl, generatedUrl);
+  public createRequestReUploadCharacterReply(): messagingApi.TextMessage {
+    return passiveTemplates.requestReUploadCharacterMessage;
   }
 
   /**
-   * Creates a message asking the user to specify the type of an uploaded image.
-   * @returns {messagingApi.TextMessage} A LINE text message object.
+   * Request re-upload of clothing image
    */
-  public createImageTypeInquiryMessage(): messagingApi.TextMessage {
-    return createImageTypeInquiryMessage();
+  public createRequestReUploadClothingReply(): messagingApi.TextMessage {
+    return passiveTemplates.requestReUploadClothingMessage;
   }
 
   /**
-   * Creates a message asking if the user wants to update the existing clothing image.
-   * @returns {messagingApi.TextMessage} A LINE text message object.
+   * Generic error message
    */
-  public createUpdateClothingInquiryMessage(): messagingApi.TextMessage {
-    return createUpdateClothingInquiryMessage();
-  }
-
-  /**
-   * Creates a message asking if the user wants to update the existing character image.
-   * @returns {messagingApi.TextMessage} A LINE text message object.
-   */
-  public createUpdateCharacterInquiryMessage(): messagingApi.TextMessage {
-    return createUpdateCharacterInquiryMessage();
-  }
-
-  /**
-   * Creates a message indicating synthesis is still processing.
-   * @returns {messagingApi.TextMessage} A LINE text message object.
-   */
-  public createStillProcessingMessage(): messagingApi.TextMessage {
-    return stillProcessingMessage;
-  }
-
-  /**
-   * Creates a message for synthesis failure with re-upload options.
-   * @returns {messagingApi.TextMessage} A LINE text message object.
-   */
-  public createSynthesisFailedMessage(): messagingApi.TextMessage {
-    return synthesisFailedMessage;
-  }
-
-  /**
-   * Creates a message when no active synthesis is found.
-   * @returns {messagingApi.TextMessage} A LINE text message object.
-   */
-  public createNoActiveSynthesisMessage(): messagingApi.TextMessage {
-    return noActiveSynthesisMessage;
+  public createErrorReply(message?: string): messagingApi.TextMessage {
+    return passiveTemplates.createErrorMessage(message);
   }
 }
 
