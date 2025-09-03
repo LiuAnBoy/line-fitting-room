@@ -48,18 +48,6 @@ class LineService {
   ): Promise<boolean> {
     const channelSecret = this.config.getConfig().LINE_CHANNEL_SECRET;
 
-    // Debug logging for troubleshooting
-    this.logger.log(`Signature validation attempt:`, { color: "cyan" });
-    this.logger.log(`- Received signature: ${signature}`, { color: "cyan" });
-    this.logger.log(`- Body length: ${body.length}`, { color: "cyan" });
-    this.logger.log(
-      `- Channel secret configured: ${channelSecret ? "Yes" : "No"}`,
-      { color: "cyan" },
-    );
-    this.logger.log(`- Channel secret length: ${channelSecret?.length || 0}`, {
-      color: "cyan",
-    });
-
     if (!channelSecret) {
       this.logger.log("❌ Channel secret is missing!", { color: "red" });
       return false;
@@ -71,12 +59,6 @@ class LineService {
       .digest("base64");
 
     // LINE sends signature without SHA256= prefix
-    this.logger.log(`- Expected signature: ${expectedSignature}`, {
-      color: "cyan",
-    });
-    this.logger.log(`- Signatures match: ${signature === expectedSignature}`, {
-      color: signature === expectedSignature ? "green" : "red",
-    });
 
     return signature === expectedSignature;
   }
