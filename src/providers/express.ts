@@ -76,6 +76,10 @@ class Express {
       this.mountConfig();
       this.mountLine();
 
+      // Initialize AI prompt service first (required for AI operations)
+      const PromptService = (await import("../services/promptService")).default;
+      await PromptService.getInstance().initialize();
+
       // Initialize core services
       const ImageCacheService = (await import("../services/imageCacheService"))
         .default;

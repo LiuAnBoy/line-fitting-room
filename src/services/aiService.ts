@@ -4,6 +4,7 @@ import * as fs from "fs";
 import consoleHandler from "../utils/consoleHandler";
 import ConfigService from "./configService";
 import ImageCacheService from "./imageCacheService";
+import PromptService, { PromptKey } from "./promptService";
 
 /**
  * @class AIService
@@ -15,6 +16,7 @@ class AIService {
   private config: ConfigService;
   private imageCacheService: ImageCacheService;
   private logger = consoleHandler.getInstance("AIService");
+  private promptService: PromptService;
 
   /**
    * Private constructor for the Singleton pattern.
@@ -25,6 +27,7 @@ class AIService {
       apiKey: this.config.getConfig().GEMINI_API_KEY,
     });
     this.imageCacheService = ImageCacheService.getInstance();
+    this.promptService = PromptService.getInstance();
   }
 
   /**
@@ -133,12 +136,7 @@ class AIService {
     characterImageData: string,
     clothingImageData: string,
   ): Promise<string> {
-    const prompt = `Replace the clothing on the person from the first image with the outfit from the second image. 
-Keep the original background and environment from the character image unchanged. 
-Ensure the new clothing fits naturally on the body with realistic fabric texture, folds, and correct perspective. 
-Adjust lighting and shadows so the outfit matches the existing scene. 
-The final photo should look like a professional, high-resolution fashion e-commerce image, 
-with the person realistically wearing the clothing in the original background.`;
+    const prompt = this.promptService.getPrompt(PromptKey.IMAGE_SYNTHESIS);
 
     const response = await this.ai.models.generateContent({
       model: "gemini-2.5-flash-image-preview",
