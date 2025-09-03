@@ -28,7 +28,12 @@ class RedisProvider {
       this.client = new Redis(redisUrl, {
         enableReadyCheck: true,
         maxRetriesPerRequest: 3,
-        lazyConnect: false,
+        connectTimeout: 10000,
+        lazyConnect: true,
+        keepAlive: 30000,
+        // Connection pool optimization
+        family: 4,
+        enableAutoPipelining: true,
       });
 
       // Connection event handlers

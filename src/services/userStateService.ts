@@ -56,6 +56,9 @@ class UserStateService {
   private logger = ConsoleHandler.getInstance("UserStateService");
   private redis: Redis;
 
+  // Redis index keys
+  private static readonly ACTIVE_USERS_KEY = "active_users";
+
   // Redis key prefixes
   private readonly STATE_PREFIX = "user:state:";
   private readonly LOCK_PREFIX = "user:lock:";
@@ -83,7 +86,13 @@ class UserStateService {
    */
   public async setUserState(userId: string, state: UserState): Promise<void> {
     const key = `${this.STATE_PREFIX}${userId}`;
-    await this.redis.set(key, state, "EX", this.SYNTHESIS_TTL);
+
+    // Use pipeline to set state and add to active users index
+    const pipeline = this.redis.pipeline();
+    pipeline.set(key, state, "EX", this.SYNTHESIS_TTL);
+    pipeline.sadd(UserStateService.ACTIVE_USERS_KEY, userId);
+    await pipeline.exec();
+
     this.logger.log(`State set: ${userId} -> ${state}`, { color: "blue" });
   }
 
@@ -152,7 +161,13 @@ class UserStateService {
    */
   public async clearUserState(userId: string): Promise<void> {
     const key = `${this.STATE_PREFIX}${userId}`;
-    await this.redis.del(key);
+
+    // Use pipeline to clear state and remove from active users index
+    const pipeline = this.redis.pipeline();
+    pipeline.del(key);
+    pipeline.srem(UserStateService.ACTIVE_USERS_KEY, userId);
+    await pipeline.exec();
+
     this.logger.log(`State cleared: ${userId}`, { color: "cyan" });
   }
 
@@ -262,7 +277,7 @@ class UserStateService {
     excludePatterns?: string[],
   ): Promise<void> {
     const pattern = `*${userId}*`;
-    const keys = await this.redis.keys(pattern);
+    const keys = await this.scanKeys(pattern);
 
     let keysToDelete = keys;
 
@@ -276,11 +291,96 @@ class UserStateService {
     }
 
     if (keysToDelete.length > 0) {
-      await this.redis.del(...keysToDelete);
+      // Use pipeline to delete keys and remove user from active index
+      const pipeline = this.redis.pipeline();
+      pipeline.del(...keysToDelete);
+      pipeline.srem(UserStateService.ACTIVE_USERS_KEY, userId);
+      await pipeline.exec();
+
       this.logger.log(
         `Cleared ${keysToDelete.length} data entries for user ${userId}`,
         { color: "red" },
       );
+    }
+  }
+
+  /**
+   * Get all active users using Redis index instead of scanning
+   * @returns {Promise<string[]>} Array of active user IDs
+   */
+  public async getActiveUsers(): Promise<string[]> {
+    const startTime = Date.now();
+    try {
+      const users = await this.redis.smembers(
+        UserStateService.ACTIVE_USERS_KEY,
+      );
+      const duration = Date.now() - startTime;
+      this.logger.log(
+        `Retrieved ${users.length} active users in ${duration}ms`,
+        { color: "green" },
+      );
+      return users;
+    } catch (error) {
+      this.logger.handleError(error as Error);
+      return [];
+    }
+  }
+
+  /**
+   * Scans for Redis keys matching a pattern using SCAN instead of KEYS
+   * to avoid blocking operations on large datasets
+   * @param pattern - Redis pattern to match
+   * @returns {Promise<string[]>} Array of matching keys
+   */
+  private async scanKeys(pattern: string): Promise<string[]> {
+    const startTime = Date.now();
+    const keys: string[] = [];
+    const stream = this.redis.scanStream({
+      match: pattern,
+      count: 100, // Process in batches of 100
+    });
+
+    for await (const chunk of stream) {
+      keys.push(...chunk);
+    }
+
+    const duration = Date.now() - startTime;
+    this.logger.log(
+      `SCAN operation found ${keys.length} keys in ${duration}ms`,
+      { color: "blue" },
+    );
+    return keys;
+  }
+
+  /**
+   * Monitor Redis operation performance
+   * @param operation - Operation name for logging
+   * @param fn - Function to execute and monitor
+   * @returns {Promise<T>} Result of the operation
+   */
+  private async monitoredRedisOperation<T>(
+    operation: string,
+    fn: () => Promise<T>,
+  ): Promise<T> {
+    const startTime = Date.now();
+    try {
+      const result = await fn();
+      const duration = Date.now() - startTime;
+      if (duration > 100) {
+        // Log slow operations (>100ms)
+        this.logger.log(`SLOW Redis ${operation}: ${duration}ms`, {
+          color: "yellow",
+        });
+      }
+      return result;
+    } catch (error) {
+      const duration = Date.now() - startTime;
+      this.logger.handleError(
+        new Error(
+          `Redis ${operation} failed after ${duration}ms: ${(error as Error).message}`,
+        ),
+      );
+      throw error;
     }
   }
 }

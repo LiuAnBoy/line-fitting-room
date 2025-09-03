@@ -188,9 +188,15 @@ class ImageCacheService {
     }
 
     const redisKey = this.getUserImagesKey(userId);
-    await this.redis.hdel(redisKey, "character");
 
-    const remainingImages = await this.redis.hkeys(redisKey);
+    // Use pipeline for atomic Redis operations
+    const pipeline = this.redis.pipeline();
+    pipeline.hdel(redisKey, "character");
+    pipeline.hkeys(redisKey);
+    const results = await pipeline.exec();
+
+    // Check if hash is empty and delete if needed
+    const remainingImages = (results?.[1]?.[1] as string[]) || [];
     if (remainingImages.length === 0) {
       await this.redis.del(redisKey);
     }
@@ -216,9 +222,15 @@ class ImageCacheService {
     }
 
     const redisKey = this.getUserImagesKey(userId);
-    await this.redis.hdel(redisKey, "clothing");
 
-    const remainingImages = await this.redis.hkeys(redisKey);
+    // Use pipeline for atomic Redis operations
+    const pipeline = this.redis.pipeline();
+    pipeline.hdel(redisKey, "clothing");
+    pipeline.hkeys(redisKey);
+    const results = await pipeline.exec();
+
+    // Check if hash is empty and delete if needed
+    const remainingImages = (results?.[1]?.[1] as string[]) || [];
     if (remainingImages.length === 0) {
       await this.redis.del(redisKey);
     }
@@ -349,9 +361,14 @@ class ImageCacheService {
     }
 
     const redisKey = this.getUserImagesKey(userId);
-    await this.redis.hdel(redisKey, "generated");
+    // Use pipeline for atomic Redis operations
+    const pipeline = this.redis.pipeline();
+    pipeline.hdel(redisKey, "generated");
+    pipeline.hkeys(redisKey);
+    const results = await pipeline.exec();
 
-    const remainingImages = await this.redis.hkeys(redisKey);
+    // Check if hash is empty and delete if needed
+    const remainingImages = (results?.[1]?.[1] as string[]) || [];
     if (remainingImages.length === 0) {
       await this.redis.del(redisKey);
     }
@@ -465,7 +482,7 @@ class ImageCacheService {
   }> {
     try {
       const pattern = "user:*:images";
-      const keys = await this.redis.keys(pattern);
+      const keys = await this.scanKeys(pattern);
 
       return {
         totalUserKeys: keys.length,
@@ -477,6 +494,64 @@ class ImageCacheService {
         totalUserKeys: 0,
         userKeys: [],
       };
+    }
+  }
+
+  /**
+   * Scans for Redis keys matching a pattern using SCAN instead of KEYS
+   * to avoid blocking operations on large datasets
+   * @param pattern - Redis pattern to match
+   * @returns {Promise<string[]>} Array of matching keys
+   */
+  private async scanKeys(pattern: string): Promise<string[]> {
+    const startTime = Date.now();
+    const keys: string[] = [];
+    const stream = this.redis.scanStream({
+      match: pattern,
+      count: 100, // Process in batches of 100
+    });
+
+    for await (const chunk of stream) {
+      keys.push(...chunk);
+    }
+
+    const duration = Date.now() - startTime;
+    this.logger.log(
+      `SCAN operation found ${keys.length} keys in ${duration}ms`,
+      { color: "blue" },
+    );
+    return keys;
+  }
+
+  /**
+   * Monitor Redis operation performance for image cache operations
+   * @param operation - Operation name for logging
+   * @param fn - Function to execute and monitor
+   * @returns {Promise<T>} Result of the operation
+   */
+  private async monitoredRedisOperation<T>(
+    operation: string,
+    fn: () => Promise<T>,
+  ): Promise<T> {
+    const startTime = Date.now();
+    try {
+      const result = await fn();
+      const duration = Date.now() - startTime;
+      if (duration > 50) {
+        // Log slow operations (>50ms for image operations)
+        this.logger.log(`SLOW Redis ${operation}: ${duration}ms`, {
+          color: "yellow",
+        });
+      }
+      return result;
+    } catch (error) {
+      const duration = Date.now() - startTime;
+      this.logger.handleError(
+        new Error(
+          `Redis ${operation} failed after ${duration}ms: ${(error as Error).message}`,
+        ),
+      );
+      throw error;
     }
   }
 }
