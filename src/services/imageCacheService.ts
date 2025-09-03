@@ -153,10 +153,10 @@ class ImageCacheService {
   }
 
   /**
-   * Gets the file path for a specific type of image for a user from Redis.
+   * Gets the file path for a user's image from Redis cache.
    * @param {string} userId - The user's ID.
-   * @param {'character' | 'clothing' | 'generated'} type - The type of image path to get.
-   * @returns {Promise<string | null>} The file path, or null if not found.
+   * @param {"character" | "clothing" | "generated"} type - The type of image to retrieve.
+   * @returns {Promise<string | null>} The file path or null if not found.
    */
   public async getImagePath(
     userId: string,

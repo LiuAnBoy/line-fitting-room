@@ -40,6 +40,10 @@ class FlowManagerService {
   private lineProvider: LineProvider;
   private config: ConfigService;
 
+  /**
+   * Private constructor for the Singleton pattern.
+   * @private
+   */
   private constructor() {
     this.userStateService = UserStateService.getInstance();
     this.commandParserService = CommandParserService.getInstance();
@@ -50,6 +54,10 @@ class FlowManagerService {
     this.config = ConfigService.getInstance();
   }
 
+  /**
+   * Gets the singleton instance of the FlowManagerService.
+   * @returns {FlowManagerService} The singleton instance.
+   */
   public static getInstance(): FlowManagerService {
     if (!FlowManagerService.instance) {
       FlowManagerService.instance = new FlowManagerService();
@@ -59,6 +67,8 @@ class FlowManagerService {
 
   /**
    * Process incoming webhook events
+   * @param {FlowEvent} event - The flow event to process
+   * @returns {Promise<void>}
    */
   public async processEvent(event: FlowEvent): Promise<void> {
     try {
@@ -90,6 +100,9 @@ class FlowManagerService {
 
   /**
    * Handle follow events (new user)
+   * @param {FlowEvent & { type: "FOLLOW" }} event - The follow event
+   * @returns {Promise<void>}
+   * @private
    */
   private async handleFollow(
     event: FlowEvent & { type: "FOLLOW" },
@@ -101,6 +114,10 @@ class FlowManagerService {
 
   /**
    * Handle text messages based on current state
+   * @param {FlowEvent & { type: "TEXT_MESSAGE" }} event - The text message event
+   * @param {UserState} currentState - The user's current state
+   * @returns {Promise<void>}
+   * @private
    */
   private async handleTextMessage(
     event: FlowEvent & { type: "TEXT_MESSAGE" },
@@ -134,6 +151,10 @@ class FlowManagerService {
 
   /**
    * Handle image messages based on current state
+   * @param {FlowEvent & { type: "IMAGE_MESSAGE" }} event - The image message event
+   * @param {UserState} currentState - The user's current state
+   * @returns {Promise<void>}
+   * @private
    */
   private async handleImageMessage(
     event: FlowEvent & { type: "IMAGE_MESSAGE" },
@@ -807,7 +828,10 @@ class FlowManagerService {
   }
 
   /**
-   * Handle unknown state
+   * Handle unknown state by resetting user to idle
+   * @param {FlowEvent & { type: "TEXT_MESSAGE" }} event - The text message event
+   * @returns {Promise<void>}
+   * @private
    */
   private async handleUnknownState(
     event: FlowEvent & { type: "TEXT_MESSAGE" },
@@ -819,7 +843,10 @@ class FlowManagerService {
   }
 
   /**
-   * Convert file path to public URL
+   * Convert file path to public URL with cache busting
+   * @param {string} filePath - The absolute file path
+   * @returns {string} The public URL with timestamp
+   * @private
    */
   private convertPathToUrl(filePath: string): string {
     const baseUrl = this.config.getConfig().BASE_URL || "http://localhost:8000";
@@ -829,7 +856,11 @@ class FlowManagerService {
   }
 
   /**
-   * Send reply message via LINE API
+   * Send reply messages to LINE user
+   * @param {string} replyToken - The reply token from LINE webhook event
+   * @param {messagingApi.Message[]} messages - Array of messages to send
+   * @returns {Promise<void>}
+   * @private
    */
   private async sendReply(
     replyToken: string,

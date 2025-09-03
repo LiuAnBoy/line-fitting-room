@@ -58,8 +58,16 @@ class CommandParserService {
     ["/init", PassiveCommand.DEV_INIT],
   ]);
 
+  /**
+   * Private constructor for the Singleton pattern.
+   * @private
+   */
   private constructor() {}
 
+  /**
+   * Gets the singleton instance of the CommandParserService.
+   * @returns {CommandParserService} The singleton instance.
+   */
   public static getInstance(): CommandParserService {
     if (!CommandParserService.instance) {
       CommandParserService.instance = new CommandParserService();
@@ -69,6 +77,8 @@ class CommandParserService {
 
   /**
    * Parse a text message into a command object
+   * @param {string} text - The text message to parse
+   * @returns {ParsedCommand} The parsed command object
    */
   public parseCommand(text: string): ParsedCommand {
     const trimmedText = text.trim();
@@ -91,6 +101,8 @@ class CommandParserService {
 
   /**
    * Check if a text is a recognized command
+   * @param {string} text - The text to check
+   * @returns {boolean} True if the text is a recognized command
    */
   public isRecognizedCommand(text: string): boolean {
     return this.passiveCommandMap.has(text.trim());
@@ -98,6 +110,7 @@ class CommandParserService {
 
   /**
    * Get all available commands for debugging
+   * @returns {string[]} Array of all available command strings
    */
   public getAvailableCommands(): string[] {
     return Array.from(this.passiveCommandMap.keys());

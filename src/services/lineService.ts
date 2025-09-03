@@ -15,11 +15,19 @@ class LineService {
   private config: ConfigService;
   private flowManager: FlowManagerService;
 
+  /**
+   * Private constructor for the Singleton pattern.
+   * @private
+   */
   private constructor() {
     this.config = ConfigService.getInstance();
     this.flowManager = FlowManagerService.getInstance();
   }
 
+  /**
+   * Gets the singleton instance of the LineService.
+   * @returns {LineService} The singleton instance.
+   */
   public static getInstance(): LineService {
     if (!LineService.instance) {
       LineService.instance = new LineService();
@@ -29,6 +37,9 @@ class LineService {
 
   /**
    * Validate LINE webhook signature
+   * @param {string} signature - The X-Line-Signature header value
+   * @param {string} body - The raw request body
+   * @returns {Promise<boolean>} True if signature is valid
    */
   public async validateSignature(
     signature: string,
@@ -71,6 +82,8 @@ class LineService {
 
   /**
    * Process incoming webhook events
+   * @param {WebhookEvent[]} events - Array of LINE webhook events to process
+   * @returns {Promise<void>}
    */
   public async processWebhookEvents(events: WebhookEvent[]): Promise<void> {
     // Process events sequentially to maintain state consistency
@@ -85,6 +98,9 @@ class LineService {
 
   /**
    * Convert LINE webhook event to FlowEvent and delegate to FlowManager
+   * @param {WebhookEvent} event - LINE webhook event to process
+   * @returns {Promise<void>}
+   * @private
    */
   private async processEvent(event: WebhookEvent): Promise<void> {
     const { source } = event;
