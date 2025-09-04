@@ -12,6 +12,7 @@ export enum PassiveCommand {
   CLEAR_CHARACTER = "CLEAR_CHARACTER",
   CLEAR_CLOTHING = "CLEAR_CLOTHING",
   CLEAR_ALL = "CLEAR_ALL",
+  USER_RESET = "USER_RESET",
   DEV_INIT = "DEV_INIT",
   UNKNOWN = "UNKNOWN",
 }
@@ -53,6 +54,10 @@ class CommandParserService {
     ["清除衣物圖片", PassiveCommand.CLEAR_CLOTHING],
     ["清除全部", PassiveCommand.CLEAR_ALL],
     ["全部清除", PassiveCommand.CLEAR_ALL],
+
+    // User reset commands
+    ["重置", PassiveCommand.USER_RESET],
+    ["/reset", PassiveCommand.USER_RESET],
 
     // Development commands
     ["/init", PassiveCommand.DEV_INIT],

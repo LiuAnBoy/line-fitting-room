@@ -5,9 +5,9 @@ import CommandParserService, {
   ParsedCommand,
   PassiveCommand,
 } from "../commandParserService";
-import { FlowEvent } from "../flowManagerService";
 import ReplyService from "../replyService";
 import UserStateService, { USER_STATES, UserState } from "../userStateService";
+import { FlowEvent } from "./types";
 
 /**
  * @class TextMessageHandlerService
@@ -78,6 +78,9 @@ class TextMessageHandlerService {
         event: FlowEvent & { type: "TEXT_MESSAGE" },
       ) => Promise<void>;
       handleDevInit: (
+        event: FlowEvent & { type: "TEXT_MESSAGE" },
+      ) => Promise<void>;
+      handleUserReset: (
         event: FlowEvent & { type: "TEXT_MESSAGE" },
       ) => Promise<void>;
       regenerateImage: (
@@ -186,6 +189,9 @@ class TextMessageHandlerService {
       case PassiveCommand.DEV_INIT:
         await handlers.handleDevInit(event);
         break;
+      case PassiveCommand.USER_RESET:
+        await handlers.handleUserReset(event);
+        break;
       case PassiveCommand.REGENERATE:
         await handlers.regenerateImage(event);
         break;
@@ -242,6 +248,9 @@ class TextMessageHandlerService {
       case PassiveCommand.CLEAR_ALL:
         await handlers.handleClearAllCommand(event);
         break;
+      case PassiveCommand.USER_RESET:
+        await handlers.handleUserReset(event);
+        break;
       default: {
         // Error: expecting image but received text message
         const errorMessage = this.replyService.createExpectingImageErrorReply();
@@ -270,6 +279,9 @@ class TextMessageHandlerService {
       case PassiveCommand.CLEAR_ALL:
         await handlers.handleClearAllCommand(event);
         break;
+      case PassiveCommand.USER_RESET:
+        await handlers.handleUserReset(event);
+        break;
       default: {
         // Error: expecting image but received text message
         const errorMessage = this.replyService.createExpectingImageErrorReply();
@@ -293,6 +305,9 @@ class TextMessageHandlerService {
     switch (command.type) {
       case PassiveCommand.CHECK_RESULT:
         await handlers.checkSynthesisResult(event);
+        break;
+      case PassiveCommand.USER_RESET:
+        await handlers.handleUserReset(event);
         break;
       default: {
         // Inform user that synthesis is in progress
@@ -327,6 +342,9 @@ class TextMessageHandlerService {
         break;
       case PassiveCommand.REGENERATE:
         await handlers.regenerateImage(event);
+        break;
+      case PassiveCommand.USER_RESET:
+        await handlers.handleUserReset(event);
         break;
       case PassiveCommand.REUPLOAD_CHARACTER: {
         await handlers.clearCharacterImage(event);
@@ -376,6 +394,9 @@ class TextMessageHandlerService {
         break;
       case PassiveCommand.REGENERATE:
         await handlers.regenerateImage(event);
+        break;
+      case PassiveCommand.USER_RESET:
+        await handlers.handleUserReset(event);
         break;
       case PassiveCommand.REUPLOAD_CHARACTER: {
         await handlers.clearCharacterImage(event);

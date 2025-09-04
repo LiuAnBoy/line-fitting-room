@@ -1,10 +1,10 @@
 import { messagingApi } from "@line/bot-sdk";
 
 import ConsoleHandler from "../../utils/consoleHandler";
-import { FlowEvent } from "../flowManagerService";
 import ImageCacheService from "../imageCacheService";
 import ReplyService from "../replyService";
 import UserStateService, { USER_STATES, UserState } from "../userStateService";
+import { FlowEvent } from "./types";
 
 /**
  * @class ImageMessageHandlerService

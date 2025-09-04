@@ -4,13 +4,13 @@ import LineProvider from "../../providers/line";
 import ConsoleHandler from "../../utils/consoleHandler";
 import AIService from "../aiService";
 import ConfigService from "../configService";
-import { FlowEvent } from "../flowManagerService";
 import ImageCacheService from "../imageCacheService";
 import ReplyService from "../replyService";
 import UserStateService, { USER_STATES, UserState } from "../userStateService";
 import EventRouterService from "./eventRouterService";
 import ImageMessageHandlerService from "./imageMessageHandlerService";
 import TextMessageHandlerService from "./textMessageHandlerService";
+import { FlowEvent } from "./types";
 
 /**
  * @class FlowOrchestratorService
@@ -146,6 +146,7 @@ class FlowOrchestratorService {
         clearClothingImage: this.clearClothingImage.bind(this),
         handleClearAllCommand: this.handleClearAllCommand.bind(this),
         handleDevInit: this.handleDevInit.bind(this),
+        handleUserReset: this.handleUserReset.bind(this),
         regenerateImage: this.regenerateImage.bind(this),
         checkSynthesisResult: this.checkSynthesisResult.bind(this),
       },
@@ -373,14 +374,65 @@ class FlowOrchestratorService {
     event: FlowEvent & { type: "TEXT_MESSAGE" },
   ): Promise<void> {
     if (this.config.getConfig().NODE_ENV !== "production") {
-      await this.userStateService.clearAllUserData(event.userId);
-      await this.userStateService.setUserState(event.userId, USER_STATES.IDLE);
-      const message = this.replyService.createWelcomeReply();
-      await this.sendReply(event.replyToken, [message]);
+      try {
+        // Full system reset - clear ALL users data and images
+        await this.imageCacheService.clearAllImages();
+        await this.userStateService.clearAllUsersData();
+
+        // Set current user state to idle
+        await this.userStateService.setUserState(
+          event.userId,
+          USER_STATES.IDLE,
+        );
+
+        // Send welcome message
+        const message = this.replyService.createWelcomeReply();
+        await this.sendReply(event.replyToken, [message]);
+
+        this.logger.log(
+          `Development system reset completed by user ${event.userId}`,
+          {
+            color: "red",
+          },
+        );
+      } catch (error) {
+        this.logger.handleError(error as Error);
+        const errorMessage =
+          this.replyService.createErrorReply("系統重置過程中發生錯誤");
+        await this.sendReply(event.replyToken, [errorMessage]);
+      }
     } else {
       const message =
         this.replyService.createErrorReply("開發命令在生產環境中不可用");
       await this.sendReply(event.replyToken, [message]);
+    }
+  }
+
+  /**
+   * Handle user reset command (available in all environments)
+   * @private
+   */
+  private async handleUserReset(
+    event: FlowEvent & { type: "TEXT_MESSAGE" },
+  ): Promise<void> {
+    try {
+      // Clear user-specific data only
+      await this.imageCacheService.clearAll(event.userId);
+      await this.userStateService.clearAllUserData(event.userId);
+      await this.userStateService.setUserState(event.userId, USER_STATES.IDLE);
+
+      // Send welcome message to restart flow
+      const message = this.replyService.createWelcomeReply();
+      await this.sendReply(event.replyToken, [message]);
+
+      this.logger.log(`User reset completed for user ${event.userId}`, {
+        color: "blue",
+      });
+    } catch (error) {
+      this.logger.handleError(error as Error);
+      const errorMessage =
+        this.replyService.createErrorReply("重置過程中發生錯誤，請稍後再試");
+      await this.sendReply(event.replyToken, [errorMessage]);
     }
   }
 

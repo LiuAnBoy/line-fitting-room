@@ -4,7 +4,7 @@ import * as crypto from "crypto";
 import ConsoleHandler from "../utils/consoleHandler";
 import ConfigService from "./configService";
 import FlowOrchestratorService from "./flow/flowOrchestratorService";
-import { FlowEvent } from "./flowManagerService";
+import { FlowEvent } from "./flow/types";
 
 /**
  * @class LineService

@@ -305,6 +305,38 @@ class UserStateService {
   }
 
   /**
+   * Clear all users data (for development system reset)
+   * WARNING: This deletes ALL user data in Redis
+   */
+  public async clearAllUsersData(): Promise<void> {
+    const startTime = Date.now();
+    try {
+      // Get all user-related keys
+      const userKeys = await this.scanKeys("user:*");
+
+      if (userKeys.length > 0) {
+        // Use pipeline for efficient bulk delete
+        const pipeline = this.redis.pipeline();
+        pipeline.del(...userKeys);
+        // Clear active users index
+        pipeline.del(UserStateService.ACTIVE_USERS_KEY);
+        await pipeline.exec();
+
+        const duration = Date.now() - startTime;
+        this.logger.log(
+          `System reset: cleared ${userKeys.length} user data entries in ${duration}ms`,
+          { color: "red" },
+        );
+      } else {
+        this.logger.log("System reset: no user data found to clear");
+      }
+    } catch (error) {
+      this.logger.handleError(error as Error);
+      throw error;
+    }
+  }
+
+  /**
    * Get all active users using Redis index instead of scanning
    * @returns {Promise<string[]>} Array of active user IDs
    */

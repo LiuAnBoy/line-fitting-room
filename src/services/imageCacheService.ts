@@ -263,6 +263,64 @@ class ImageCacheService {
   }
 
   /**
+   * Clears all images for all users (for development system reset)
+   * WARNING: This deletes ALL image files and cache data
+   */
+  public async clearAllImages(): Promise<void> {
+    const startTime = Date.now();
+    try {
+      // Clear all image files
+      const imagesDir = this.IMAGES_DIR;
+      try {
+        await fs.promises.access(imagesDir);
+        await fs.promises.rm(imagesDir, { recursive: true, force: true });
+        await fs.promises.mkdir(imagesDir, { recursive: true });
+        this.logger.log(
+          `System reset: cleared all image files from ${imagesDir}`,
+        );
+      } catch {
+        this.logger.log(
+          `System reset: images directory not found: ${imagesDir}`,
+        );
+      }
+
+      // Clear all Redis image metadata
+      const imageKeys = await this.scanImageKeys();
+      if (imageKeys.length > 0) {
+        await this.redis.del(...imageKeys);
+        const duration = Date.now() - startTime;
+        this.logger.log(
+          `System reset: cleared ${imageKeys.length} image cache entries in ${duration}ms`,
+          { color: "red" },
+        );
+      } else {
+        this.logger.log("System reset: no image cache data found to clear");
+      }
+    } catch (error) {
+      this.logger.handleError(error as Error);
+      throw error;
+    }
+  }
+
+  /**
+   * Scan for image-related Redis keys
+   * @private
+   */
+  private async scanImageKeys(): Promise<string[]> {
+    const keys: string[] = [];
+    const stream = this.redis.scanStream({
+      match: "user:*:images",
+      count: 100,
+    });
+
+    for await (const chunk of stream) {
+      keys.push(...chunk);
+    }
+
+    return keys;
+  }
+
+  /**
    * Checks if a user has a character image.
    * @param {string} userId - The user's ID.
    * @returns {Promise<boolean>} True if the image exists, false otherwise.
