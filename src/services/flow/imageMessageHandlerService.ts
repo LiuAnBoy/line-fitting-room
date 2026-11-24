@@ -4,7 +4,7 @@ import ConsoleHandler from "../../utils/consoleHandler";
 import ImageCacheService from "../imageCacheService";
 import ReplyService from "../replyService";
 import UserStateService, { USER_STATES, UserState } from "../userStateService";
-import { FlowEvent } from "./types";
+import { FlowEvent } from "./flowOrchestratorService";
 
 /**
  * @class ImageMessageHandlerService

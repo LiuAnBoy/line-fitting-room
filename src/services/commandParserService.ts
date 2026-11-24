@@ -37,8 +37,6 @@ class CommandParserService {
   private readonly passiveCommandMap = new Map<string, PassiveCommand>([
     // Flow start commands
     ["開始使用", PassiveCommand.START_FLOW],
-    ["start", PassiveCommand.START_FLOW],
-    ["/start", PassiveCommand.START_FLOW],
 
     // Result checking
     ["查看結果", PassiveCommand.CHECK_RESULT],
@@ -57,7 +55,6 @@ class CommandParserService {
 
     // User reset commands
     ["重置", PassiveCommand.USER_RESET],
-    ["/reset", PassiveCommand.USER_RESET],
 
     // Development commands
     ["/init", PassiveCommand.DEV_INIT],

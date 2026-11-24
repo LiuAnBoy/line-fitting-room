@@ -10,7 +10,19 @@ import UserStateService, { USER_STATES, UserState } from "../userStateService";
 import EventRouterService from "./eventRouterService";
 import ImageMessageHandlerService from "./imageMessageHandlerService";
 import TextMessageHandlerService from "./textMessageHandlerService";
-import { FlowEvent } from "./types";
+
+/**
+ * Event types that the flow system can process
+ */
+export type FlowEvent =
+  | { type: "TEXT_MESSAGE"; text: string; userId: string; replyToken: string }
+  | {
+      type: "IMAGE_MESSAGE";
+      imageId: string;
+      userId: string;
+      replyToken: string;
+    }
+  | { type: "FOLLOW"; userId: string; replyToken: string };
 
 /**
  * @class FlowOrchestratorService
@@ -360,7 +372,7 @@ class FlowOrchestratorService {
   private async handleClearAllCommand(
     event: FlowEvent & { type: "TEXT_MESSAGE" },
   ): Promise<void> {
-    await this.imageCacheService.clearAll(event.userId);
+    await this.imageCacheService.clearUserImages(event.userId);
     await this.userStateService.setUserState(event.userId, USER_STATES.IDLE);
     const message = this.replyService.createAllClearedReply();
     await this.sendReply(event.replyToken, [message]);
@@ -376,7 +388,7 @@ class FlowOrchestratorService {
     if (this.config.getConfig().NODE_ENV !== "production") {
       try {
         // Full system reset - clear ALL users data and images
-        await this.imageCacheService.clearAllImages();
+        await this.imageCacheService.clearSystemImages();
         await this.userStateService.clearAllUsersData();
 
         // Set current user state to idle
@@ -417,7 +429,7 @@ class FlowOrchestratorService {
   ): Promise<void> {
     try {
       // Clear user-specific data only
-      await this.imageCacheService.clearAll(event.userId);
+      await this.imageCacheService.clearUserImages(event.userId);
       await this.userStateService.clearAllUserData(event.userId);
       await this.userStateService.setUserState(event.userId, USER_STATES.IDLE);
 

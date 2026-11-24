@@ -1,5 +1,5 @@
 import ConsoleHandler from "../../utils/consoleHandler";
-import { FlowEvent } from "./types";
+import { FlowEvent } from "./flowOrchestratorService";
 
 /**
  * @class EventRouterService

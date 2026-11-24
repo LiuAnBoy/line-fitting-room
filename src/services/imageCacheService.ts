@@ -244,7 +244,11 @@ class ImageCacheService {
    * Clears all cached data and files for a specific user.
    * @param {string} userId - The user's ID.
    */
-  public async clearAll(userId: string): Promise<void> {
+  /**
+   * Clears all cached data and files for a specific user.
+   * @param {string} userId - The user's ID.
+   */
+  public async clearUserImages(userId: string): Promise<void> {
     const userDir = this.getUserImageDir(userId);
     try {
       await fs.promises.access(userDir);
@@ -266,7 +270,11 @@ class ImageCacheService {
    * Clears all images for all users (for development system reset)
    * WARNING: This deletes ALL image files and cache data
    */
-  public async clearAllImages(): Promise<void> {
+  /**
+   * Clears all images for all users (system-wide reset for development)
+   * WARNING: This deletes ALL image files and cache data across the entire system
+   */
+  public async clearSystemImages(): Promise<void> {
     const startTime = Date.now();
     try {
       // Clear all image files
@@ -486,7 +494,7 @@ class ImageCacheService {
     try {
       const buffer = Buffer.from(imageData, "base64");
       await this.ensureUserDirectory(userId);
-      await this.cleanupOldGeneratedImages(userId);
+      await this.cleanupOldGenerated(userId);
 
       const timestamp = new Date().toISOString().replace(/[:.]/g, "-");
       const filename = `generated_${timestamp}.jpg`;
@@ -508,7 +516,11 @@ class ImageCacheService {
    * Clean up old generated images in user directory
    * @param {string} userId - User ID for directory cleanup
    */
-  public async cleanupOldGeneratedImages(userId: string): Promise<void> {
+  /**
+   * Clean up old generated images in user directory
+   * @param {string} userId - User ID for directory cleanup
+   */
+  public async cleanupOldGenerated(userId: string): Promise<void> {
     try {
       const userImageDir = this.getUserImageDir(userId);
       await fs.promises.access(userImageDir);

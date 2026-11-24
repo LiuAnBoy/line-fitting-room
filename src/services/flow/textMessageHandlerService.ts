@@ -7,7 +7,7 @@ import CommandParserService, {
 } from "../commandParserService";
 import ReplyService from "../replyService";
 import UserStateService, { USER_STATES, UserState } from "../userStateService";
-import { FlowEvent } from "./types";
+import { FlowEvent } from "./flowOrchestratorService";
 
 /**
  * @class TextMessageHandlerService
@@ -305,9 +305,6 @@ class TextMessageHandlerService {
     switch (command.type) {
       case PassiveCommand.CHECK_RESULT:
         await handlers.checkSynthesisResult(event);
-        break;
-      case PassiveCommand.USER_RESET:
-        await handlers.handleUserReset(event);
         break;
       default: {
         // Inform user that synthesis is in progress
